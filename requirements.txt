@@ -3,3 +3,4 @@ requests
 scikit-learn
 rank-bm25
 sentence-transformers
+transformers
