@@ -13,7 +13,7 @@ Verifies AI-generated answers against trusted sources and flags hallucinated (ma
 |---|---|---|
 | `verification/` | Abhishek | Verification engine (core) + pipeline integration |
 | `retrieval/` | Ishan | Trusted corpus, inverted index, BM25 + embedding search |
-| `claim_extractor/` | Pratham | Claim extraction + AI model input handling |
+| `claim_extractor/` | Varun | Claim extraction + AI model input handling |
 | `dashboard/` | Divyansh | Web dashboard UI |
 
 ## Workflow rules
