@@ -184,21 +184,12 @@ def _decontextualize_sentence(sentence: str, last_entity: Optional[str]) -> str:
     if not last_entity:
         return sentence
 
-    # Leading pronoun patterns
-    pronoun_patterns = [
-        (r"^(?:he|she)\s+(?:was|is|became|moved|won|wrote|born|died|studied|graduated)\b", r"\1"),
-        (r"^(?:he|she)\b", ""),
-        (r"^(?:it)\b", ""),
-        (r"^(?:they)\b", ""),
-        (r"^(?:this\s+(?:person|individual|man|woman|company|organization))\b", ""),
-    ]
-
-    for pattern, _ in pronoun_patterns:
-        match = re.search(pattern, sentence, flags=re.IGNORECASE)
-        if match:
-            # Replace the pronoun with the actual entity
-            replaced = last_entity + sentence[match.end():]
-            return replaced.strip()
+    # Match leading subject pronoun / demonstrative
+    pattern = r"^(he|she|it|they|this\s+(?:person|individual|man|woman|company|organization))\b\s*"
+    match = re.match(pattern, sentence, flags=re.IGNORECASE)
+    if match:
+        remainder = sentence[match.end():]
+        return f"{last_entity} {remainder}".strip()
 
     return sentence
 
