@@ -123,6 +123,11 @@ def is_pure_opinion(text: str) -> bool:
     return is_copula_subjective or (has_subjective and len(words) < 8)
 
 
+def is_opinion(text: str) -> bool:
+    """Check if text expresses a subjective opinion or value judgment."""
+    return is_pure_opinion(text)
+
+
 def is_valid_factual_claim(text: str) -> bool:
     """
     Applies all filters to ensure the text is a legitimate, standalone,
