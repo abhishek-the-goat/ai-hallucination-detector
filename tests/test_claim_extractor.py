@@ -4,6 +4,12 @@ Tests sentence splitting, compound clause separation, non-claim filtering,
 decontextualization, and adherence to the shared contract schema.
 """
 
+import os
+import sys
+
+# Add repository root to sys.path so modules can be imported in CI
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import unittest
 from claim_extractor.extractor import extract_claims
 from claim_extractor.filters import (
