@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Aegis-3D // AI Hallucination Detector{% endblock %}</title>
+
+  <!-- Google Fonts: Space Grotesk, Syne, Inter, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
+  {% block head %}{% endblock %}
+</head>
+<body class="cyber-dark">
+
+  <!-- ── Fullscreen Interactive 3D Background Canvas ────────────────── -->
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- ── Ambient Glow Overlays (depth effects) ──────────────────────── -->
+  <div class="ambient-glow glow-cyan"></div>
+  <div class="ambient-glow glow-purple"></div>
+
+  <!-- ── Top Holographic Navigation ─────────────────────────────────── -->
+  <header class="hud-header">
+    <div class="hud-inner">
+      <a class="hud-brand" href="{{ url_for('index') }}">
+        <div class="brand-cube">
+          <span class="cube-face front"></span>
+          <span class="cube-face back"></span>
+          <span class="cube-face left"></span>
+          <span class="cube-face right"></span>
+          <span class="cube-face top"></span>
+          <span class="cube-face bottom"></span>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">AEGIS<span class="brand-accent">.3D</span></span>
+          <span class="brand-sub">HALLUCINATION VERIFIER</span>
+        </div>
+      </a>
+
+      <!-- System status indicator -->
+      <div class="system-status-chip">
+        <span class="status-pulse"></span>
+        <span class="status-label">NEURAL PIPELINE ACTIVE</span>
+        <span class="status-sep">|</span>
+        <span class="status-meta">DEBERTA-V3 · FAISS HYBRID</span>
+      </div>
+
+      <!-- Navigation tabs -->
+      <nav class="hud-nav">
+        <a href="{{ url_for('index') }}" class="nav-tab {% if request.endpoint == 'index' %}active{% endif %}">
+          <span class="tab-icon">◈</span>
+          <span>ANALYSER</span>
+        </a>
+        <a href="{{ url_for('history') }}" class="nav-tab {% if request.endpoint in ('history','history_detail') %}active{% endif %}">
+          <span class="tab-icon">⬡</span>
+          <span>AUDIT LOGS</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ── Main Viewport ──────────────────────────────────────────────── -->
+  <main class="hud-main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ── Three.js & Controls from CDN ───────────────────────────────── -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="{{ url_for('static', filename='js/background3d.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/tilt.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
