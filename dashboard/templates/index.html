@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}AI Hallucination Detector — Check Answer{% endblock %}
+
+{% block content %}
+<div class="index-layout">
+  <div class="hero-block">
+    <h1 class="hero-heading">
+      Verify AI-Generated Content for <span class="gradient-text">Hallucinations</span>
+    </h1>
+    <p class="hero-subheading">
+      Extract factual claims from AI text, retrieve ground-truth passages from Wikipedia, and verify entailment using deep natural language inference.
+    </p>
+  </div>
+
+  {% if error %}
+  <div class="alert-error">
+    <span class="alert-icon">⚠</span>
+    <span>{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <div class="glass-card tilt-card form-container">
+    <form method="POST" action="{{ url_for('check') }}" id="check-form">
+      <div class="form-header">
+        <label for="answer_text" class="field-label">Paste AI Answer</label>
+        <span class="field-hint">Enter the text you want to evaluate</span>
+      </div>
+
+      <textarea
+        name="answer_text"
+        id="answer_text"
+        placeholder="Paste an AI-generated answer here to decompose into atomic claims and verify against trusted sources..."
+        rows="9"
+        required
+      ></textarea>
+
+      <div class="form-actions">
+        <span class="pipeline-note">Models loaded in memory: DeBERTa-v3 NLI + MiniLM embeddings + FAISS index</span>
+        <button type="submit" class="btn-submit" id="submit-btn">
+          <span class="btn-text">Check for Hallucinations</span>
+          <span class="btn-spinner hidden" id="spinner"></span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const form = document.getElementById('check-form');
+  form.addEventListener('submit', (e) => {
+    const textarea = document.getElementById('answer_text');
+    if (!textarea.value || !textarea.value.trim()) {
+      e.preventDefault();
+      alert('paste an answer first');
+      return;
+    }
+    const btn = document.getElementById('submit-btn');
+    const text = btn.querySelector('.btn-text');
+    const spinner = document.getElementById('spinner');
+    text.textContent = 'Verifying Claims...';
+    spinner.classList.remove('hidden');
+    // Delay disabling button so form submission payload is sent reliably
+    setTimeout(() => { btn.disabled = true; }, 20);
+  });
+</script>
+{% endblock %}

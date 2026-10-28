@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Verification Results — AI Hallucination Detector{% endblock %}
+
+{% block content %}
+<div class="results-layout">
+
+  <!-- ── 1. Big Hallucination Score Display at the Top ──────────────── -->
+  <div class="glass-card tilt-card score-banner">
+    <div class="score-main">
+      <div class="score-metric">
+        <span class="score-value" style="color: {{ verdict_color }}">{{ hallucination_score|int }}%</span>
+        <span class="score-label">Hallucination Score</span>
+      </div>
+
+      <div class="score-meta-block">
+        <div class="verdict-tag" style="border-color: {{ verdict_color }}; color: {{ verdict_color }}; background: {{ verdict_color }}15;">
+          {{ verdict_label }}
+        </div>
+        <div class="counts-strip">
+          <span class="count-pill pill-supported">✓ {{ supported }} Supported</span>
+          <span class="count-pill pill-contradicted">✕ {{ contradicted }} Contradicted</span>
+          <span class="count-pill pill-unverified">? {{ unverified }} Unverified</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="score-actions">
+      <a href="{{ url_for('index') }}" class="btn-ghost">← Check Another Answer</a>
+      <a href="{{ url_for('history') }}" class="btn-ghost">View History</a>
+    </div>
+  </div>
+
+  <!-- ── 2. Original Answer with Claims Highlighted Inline ──────────── -->
+  <section class="section-card-wrap">
+    <div class="section-title-bar">
+      <h2 class="section-title">Original Answer with Inline Claim Highlights</h2>
+      <div class="highlight-legend">
+        <span class="legend-item"><span class="legend-box box-supported"></span> Supported</span>
+        <span class="legend-item"><span class="legend-box box-contradicted"></span> Contradicted</span>
+        <span class="legend-item"><span class="legend-box box-unverified"></span> Unverified</span>
+      </div>
+    </div>
+
+    <div class="glass-card tilt-card highlighted-document">
+      <div class="document-text">
+        {{ highlighted_html | safe }}
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 3. Claim-by-Claim Breakdown with Evidence Panels ───────────── -->
+  <section class="section-card-wrap">
+    <h2 class="section-title">Claim Breakdown &amp; Retrieved Evidence</h2>
+
+    {% if not verdicts %}
+    <div class="glass-card empty-panel">
+      <p>No verifiable factual claims were extracted from this answer.</p>
+    </div>
+    {% endif %}
+
+    <div class="claims-list">
+      {% for v in verdicts %}
+      {% set label_lower = v.label | lower %}
+      <div class="glass-card tilt-card claim-card claim-card-{{ label_lower }}" id="claim-{{ v.claim_id }}">
+        
+        <!-- Claim header -->
+        <div class="claim-card-header">
+          <div class="claim-left-meta">
+            <span class="claim-id-badge">Claim #{{ v.claim_id }}</span>
+            <span class="verdict-badge verdict-badge-{{ label_lower }}">
+              {% if v.label == 'SUPPORTED' %}✓ SUPPORTED
+              {% elif v.label == 'CONTRADICTED' %}✕ CONTRADICTED
+              {% else %}? UNVERIFIED{% endif %}
+            </span>
+          </div>
+
+          <div class="claim-right-meta">
+            <span class="confidence-badge">Confidence: {{ (v.confidence * 100)|round(1) }}%</span>
+          </div>
+        </div>
+
+        <!-- Extracted claim text -->
+        <p class="claim-content">{{ v.claim_text }}</p>
+
+        <!-- Evidence panel -->
+        <div class="evidence-panel">
+          <h3 class="evidence-panel-title">Retrieved Evidence Passages ({{ v.evidence|length }})</h3>
+
+          {% if v.evidence %}
+          <div class="evidence-list">
+            {% for ev in v.evidence %}
+            <div class="evidence-item">
+              <div class="evidence-item-header">
+                <span class="evidence-source">
+                  {{ ev.source_title }}
+                  {% if ev.source_url %}
+                  <a href="{{ ev.source_url }}" target="_blank" rel="noopener noreferrer" class="evidence-link">↗ source</a>
+                  {% endif %}
+                </span>
+                <span class="evidence-score">Relevance Score: {{ "%.3f"|format(ev.score) }}</span>
+              </div>
+              <blockquote class="evidence-text">{{ ev.text }}</blockquote>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="no-evidence-text">No matching evidence passages retrieved from the index.</p>
+          {% endif %}
+        </div>
+
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+</div>
+{% endblock %}

@@ -672,5 +672,71 @@ class TestVectorIndexMocked(unittest.TestCase):
 # Entry point
 # ===========================================================================
 
+# ===========================================================================
+# 8. Live Wikipedia Search & Fallback
+# ===========================================================================
+
+class TestLiveSearchRetrieval(unittest.TestCase):
+    """Tests for live Wikipedia retrieval and fallback mechanisms."""
+
+    def test_split_into_passages(self):
+        from retrieval.live_search import split_into_passages
+        text = (
+            "Sentence one is here. Sentence two is here. Sentence three is here. "
+            "Sentence four is here. Sentence five is here. Sentence six is here."
+        )
+        passages = split_into_passages(text, min_sents=3, max_sents=5)
+        self.assertTrue(len(passages) >= 1)
+        self.assertIn("Sentence one is here.", passages[0])
+
+    def test_split_into_passages_blank(self):
+        from retrieval.live_search import split_into_passages
+        self.assertEqual(split_into_passages(""), [])
+        self.assertEqual(split_into_passages("   "), [])
+
+    def test_live_true_returns_live_evidence(self):
+        mock_evidence = [
+            {
+                "text": "The Taj Mahal is in Agra.",
+                "source_title": "Taj Mahal - Wikipedia",
+                "source_url": "https://en.wikipedia.org/wiki/Taj_Mahal",
+                "score": 0.85,
+                "raw_similarity": 0.85,
+                "cosine_similarity": 0.85,
+            }
+        ]
+        with patch("retrieval.live_search.retrieve_live_evidence", return_value=mock_evidence):
+            res = retrieve_evidence("Taj Mahal claim", live=True)
+            self.assertEqual(res, mock_evidence)
+
+    def test_live_true_falls_back_on_exception(self):
+        bm25 = BM25Index(_MINI_CORPUS)
+        mock_v = MagicMock()
+        mock_v.search.return_value = [(0.9, _EIFFEL_DOC)]
+        with patch("retrieval.live_search.retrieve_live_evidence", side_effect=Exception("Timeout")):
+            res = retrieve_evidence(
+                "Eiffel Tower",
+                live=True,
+                _bm25=bm25,
+                _vector=mock_v,
+            )
+            self.assertTrue(len(res) > 0)
+            self.assertEqual(res[0]["source_title"], "Eiffel Tower - Wikipedia")
+
+    def test_live_true_falls_back_on_empty_results(self):
+        bm25 = BM25Index(_MINI_CORPUS)
+        mock_v = MagicMock()
+        mock_v.search.return_value = [(0.9, _EIFFEL_DOC)]
+        with patch("retrieval.live_search.retrieve_live_evidence", return_value=[]):
+            res = retrieve_evidence(
+                "Eiffel Tower",
+                live=True,
+                _bm25=bm25,
+                _vector=mock_v,
+            )
+            self.assertTrue(len(res) > 0)
+            self.assertEqual(res[0]["source_title"], "Eiffel Tower - Wikipedia")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

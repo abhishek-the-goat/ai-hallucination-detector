@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}AI Hallucination Detector{% endblock %}</title>
+
+  <!-- Clean modern typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
+  {% block head %}{% endblock %}
+</head>
+<body class="dark-theme">
+
+  <!-- ── 3D animated Three.js background canvas ─────────────────────── -->
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- ── Glass Navbar ───────────────────────────────────────────────── -->
+  <nav class="glass-nav">
+    <div class="nav-container">
+      <a class="nav-brand" href="{{ url_for('index') }}">
+        <span class="brand-icon">⬡</span>
+        <span class="brand-name">AI Hallucination <span class="accent-text">Detector</span></span>
+      </a>
+
+      <div class="nav-links">
+        <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+          Check
+        </a>
+        <a href="{{ url_for('history') }}" class="nav-link {% if request.endpoint in ('history','history_detail') %}active{% endif %}">
+          History
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Main Content Container ─────────────────────────────────────── -->
+  <main class="page-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ── Three.js via CDN ───────────────────────────────────────────── -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script src="{{ url_for('static', filename='js/background3d.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/tilt.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

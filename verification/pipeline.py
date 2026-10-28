@@ -27,18 +27,24 @@ def run_pipeline(answer_text: str) -> dict:
             "claim_id": str(raw_claim.get("claim_id", "")),
             "text": raw_claim.get("text", ""),
         }
-        raw_evidence = retrieve_evidence(claim["text"], k=5)
-        # Adapt Evidence shape: ensure text, source_title, source_url, and score keys
-        evidence = [
-            {
-                "text": ev.get("text", ""),
-                "source_title": ev.get("source_title", ""),
-                "source_url": ev.get("source_url", ""),
-                "score": float(ev.get("score", 0.0)),
-            }
-            for ev in raw_evidence
+        raw_evidence = retrieve_evidence(claim["text"], k=5, live=True)
+
+        # Drop any evidence whose raw similarity is below 0.5
+        filtered_evidence = [
+            ev for ev in raw_evidence
+            if float(ev.get("raw_similarity", ev.get("cosine_similarity", ev.get("score", 0.0)))) >= 0.5
         ]
-        verdict = verify_claim(claim, evidence)
+
+        # If all evidence is below 0.5, mark UNVERIFIED with no evidence shown
+        if not filtered_evidence:
+            verdict = {
+                "claim_id": claim["claim_id"],
+                "label": "UNVERIFIED",
+                "confidence": 0.3,
+                "evidence": [],
+            }
+        else:
+            verdict = verify_claim(claim, filtered_evidence)
         verdicts.append(verdict)
 
         if verdict["label"] == "CONTRADICTED":
@@ -53,4 +59,3 @@ def run_pipeline(answer_text: str) -> dict:
         "verdicts": verdicts,
         "hallucination_score": hallucination_score,
     }
-

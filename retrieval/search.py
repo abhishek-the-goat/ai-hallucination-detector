@@ -15,7 +15,8 @@ Hybrid retrieval strategy
 4. Compute a combined score:
        combined = BM25_WEIGHT * bm25_normalised + VECTOR_WEIGHT * cosine_score
    where bm25_normalised = raw_bm25 / max_raw_bm25  (range [0, 1]).
-5. Sort combined candidates descending, return the best k as Evidence dicts.
+5. Sort combined candidates descending, return the best k as Evidence dicts,
+   including both the fused hybrid score and the raw cosine similarity.
 
 Nothing in this module triggers a model load or network call on import.
 """
@@ -38,12 +39,6 @@ VECTOR_WEIGHT: float = 0.60
 # Evidence type alias (plain dict to match verification.engine contract)
 # ---------------------------------------------------------------------------
 
-# Evidence = {
-#   "text":         str,
-#   "source_title": str,
-#   "source_url":   str,
-#   "score":        float,   # combined retrieval score in [0.0, 1.0]
-# }
 Evidence = dict
 
 
@@ -104,13 +99,20 @@ def _merge_results(
     return merged
 
 
-def _doc_to_evidence(doc: Document, score: float) -> Evidence:
+def _doc_to_evidence(
+    doc: Document,
+    score: float,
+    raw_similarity: Optional[float] = None,
+) -> Evidence:
     """Convert a Document + score into the Evidence contract dict."""
+    raw_sim = score if raw_similarity is None else raw_similarity
     return {
-        "text":         doc.text,
-        "source_title": doc.source_title,
-        "source_url":   doc.source_url,
-        "score":        round(float(score), 6),
+        "text":              doc.text,
+        "source_title":      doc.source_title,
+        "source_url":        doc.source_url,
+        "score":             round(float(score), 6),
+        "raw_similarity":    round(float(raw_sim), 6),
+        "cosine_similarity": round(float(raw_sim), 6),
     }
 
 
@@ -122,6 +124,7 @@ def _doc_to_evidence(doc: Document, score: float) -> Evidence:
 def retrieve_evidence(
     claim_text: str,
     k: int = 5,
+    live: bool = False,
     *,
     _documents: Optional[list[Document]] = None,
     _bm25: Optional[BM25Index] = None,
@@ -135,6 +138,9 @@ def retrieve_evidence(
     claim_text : The factual claim to search evidence for.
     k          : Maximum number of Evidence dicts to return. Must be >= 1.
                  Values <= 0 are treated as 1.
+    live       : If True, query live Wikipedia via MediaWiki API, falling
+                 back to the static corpus on network errors or empty results.
+                 Defaults to False (offline static corpus index).
 
     Private parameters (for testing / dependency injection only)
     -------------------------------------------------------------
@@ -145,16 +151,12 @@ def retrieve_evidence(
     Returns
     -------
     list of Evidence dicts, each with keys:
-        text, source_title, source_url, score
+        text, source_title, source_url, score, raw_similarity, cosine_similarity
 
     - At most *k* results are returned.
-    - Results are sorted by combined score descending.
+    - Results are sorted by score descending.
     - Returns [] for blank claims, invalid k, or an empty corpus.
-    - Never fabricates evidence; only real corpus passages are returned.
-
-    Raises
-    ------
-    RuntimeError : if the corpus is empty and no indexes can be built.
+    - Never fabricates evidence; only real passages are returned.
     """
     # --- Guard: blank claim ---
     if not claim_text or not claim_text.strip():
@@ -163,7 +165,18 @@ def retrieve_evidence(
     # --- Guard: k ---
     k = max(1, int(k))
 
-    # --- Obtain indexes ---
+    # --- Optional live Wikipedia retrieval ---
+    if live:
+        try:
+            from retrieval.live_search import retrieve_live_evidence
+            live_results = retrieve_live_evidence(claim_text, k=k)
+            if live_results:
+                return live_results
+        except Exception:
+            # Fall back to static corpus index on any error or timeout
+            pass
+
+    # --- Obtain static corpus indexes ---
     if _bm25 is not None and _vector is not None:
         bm25_idx, vector_idx = _bm25, _vector
     else:
@@ -180,9 +193,12 @@ def retrieve_evidence(
     # --- Merge, deduplicate, rank ---
     merged = _merge_results(bm25_results, vector_results)
 
-    # --- Build Evidence list ---
+    # --- Map raw cosine similarity scores from vector index ---
+    vector_scores: dict[str, float] = {doc.id: score for score, doc in vector_results}
+
+    # --- Build Evidence list with both fused score and raw similarity ---
     evidence: list[Evidence] = [
-        _doc_to_evidence(doc, score)
+        _doc_to_evidence(doc, score, raw_similarity=vector_scores.get(doc.id, 0.0))
         for score, doc in merged[:k]
     ]
 
