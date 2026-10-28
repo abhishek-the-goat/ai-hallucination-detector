@@ -1,51 +1,68 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}AI Hallucination Detector{% endblock %}</title>
-
-  <!-- Clean modern typography -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Hallucination Detector{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
-  {% block head %}{% endblock %}
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>try { if (sessionStorage.getItem("zoomIn")) document.documentElement.classList.add("zoom-landing"); } catch (e) {}</script>
 </head>
-<body class="dark-theme">
-
-  <!-- ── 3D animated Three.js background canvas ─────────────────────── -->
-  <canvas id="bg-canvas"></canvas>
-
-  <!-- ── Glass Navbar ───────────────────────────────────────────────── -->
-  <nav class="glass-nav">
-    <div class="nav-container">
-      <a class="nav-brand" href="{{ url_for('index') }}">
-        <span class="brand-icon">⬡</span>
-        <span class="brand-name">AI Hallucination <span class="accent-text">Detector</span></span>
-      </a>
-
-      <div class="nav-links">
-        <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
-          Check
-        </a>
-        <a href="{{ url_for('history') }}" class="nav-link {% if request.endpoint in ('history','history_detail') %}active{% endif %}">
-          History
-        </a>
+<body>
+  <div class="cursor-glow" aria-hidden="true"></div>
+  <div class="custom-cursor" aria-hidden="true"><span></span></div>
+  <header class="top">
+    <a class="brand" href="{{ url_for('home') }}">Hallucination Detector</a>
+    <nav>
+      <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}aria-current="page"{% endif %}>New check</a>
+      <div class="hist-wrap">
+        <a href="{{ url_for('history') }}" {% if request.endpoint == 'history' %}aria-current="page"{% endif %}>History</a>
+        <div class="hist-pop">
+          <div class="hist-card">
+            {% if recent_checks %}
+            <p class="hp-title">Recent checks</p>
+            <ul>
+              {% for c in recent_checks %}
+              <li><a class="zoom-link" href="{{ url_for('results', check_id=c.id) }}">
+                <span class="pill {{ 'good' if c.score < 20 else ('warn' if c.score < 50 else 'bad') }}">{{ c.score }}%</span>
+                <span class="hp-text">{{ c.snippet|truncate(46, True) }}</span>
+                <span class="hp-time">{{ c.created_at[5:16] }}</span>
+              </a></li>
+              {% endfor %}
+            </ul>
+            <a class="hp-all" href="{{ url_for('history') }}">View all checks</a>
+            {% else %}
+            <p class="hp-empty">No checks yet. Paste an AI answer to run your first one.</p>
+            {% endif %}
+          </div>
+        </div>
       </div>
-    </div>
-  </nav>
-
-  <!-- ── Main Content Container ─────────────────────────────────────── -->
-  <main class="page-content">
+      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to light theme" title="Switch theme">☼ <span>Theme</span></button>
+    </nav>
+  </header>
+  {% if demo_mode %}<p class="banner"><strong>DEMO MODE:</strong> the verification pipeline could not be imported. Results are illustrative only; claims are not actually verified.</p>{% endif %}
+  {% block hero %}{% endblock %}
+  <main>
+    {% for m in get_flashed_messages() %}<p class="flash" role="alert">{{ m }}</p>{% endfor %}
     {% block content %}{% endblock %}
   </main>
-
-  <!-- ── Three.js via CDN ───────────────────────────────────────────── -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-  <script src="{{ url_for('static', filename='js/background3d.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/tilt.js') }}"></script>
-  {% block scripts %}{% endblock %}
+  {% if request.endpoint != 'home' %}
+  <button type="button" id="qc-toggle" class="qc-toggle" aria-expanded="false" aria-controls="qc-panel">
+    <span class="qc-orb" aria-hidden="true">✳</span><span><small>FAST TOOL</small> Signal Scan</span><span class="qc-toggle-arrow" aria-hidden="true">↗</span>
+  </button>
+  <form id="qc-panel" class="qc-panel" method="post" action="{{ url_for('check') }}" hidden>
+    <div class="qc-heading"><span class="qc-kicker">QUICK INTELLIGENCE CHECK</span><span class="qc-live"><i></i> READY</span></div>
+    <h2>Scan an answer</h2>
+    <p class="qc-copy">Spot unsupported claims before you trust the response.</p>
+    <label for="qc-answer">AI-generated text</label>
+    <textarea id="qc-answer" name="answer_text" rows="5" required minlength="20" placeholder="Paste AI Answer to inspect…"></textarea>
+    <div class="qc-tools"><span id="qc-count">0 characters · 20 minimum</span><button type="button" id="qc-sample">Try sample ↗</button></div>
+    <button type="submit" class="qc-submit"><span>Run signal scan</span><span aria-hidden="true">⟶</span></button>
+    <p class="qc-footnote">Claim-level results · Evidence-aware · Not a guarantee of truth</p>
+  </form>
+  {% endif %}
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

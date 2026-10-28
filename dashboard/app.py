@@ -216,48 +216,110 @@ def _esc(s: str) -> str:
     )
 
 
-def _build_result_context(answer_text: str, report: dict) -> dict:
+@app.context_processor
+def inject_globals():
+    recent = []
+    try:
+        db = get_db()
+        rows = db.execute(
+            "SELECT id, timestamp, answer_text, hallucination_score, "
+            "supported_count, contradicted_count, unverified_count "
+            "FROM checks ORDER BY id DESC LIMIT 5"
+        ).fetchall()
+        for r in rows:
+            sc = float(r["hallucination_score"])
+            recent.append({
+                "id": r["id"],
+                "created_at": r["timestamp"],
+                "snippet": r["answer_text"][:60],
+                "score": int(sc) if sc == int(sc) else round(sc, 2),
+                "n_claims": r["supported_count"] + r["contradicted_count"] + r["unverified_count"],
+            })
+    except Exception:
+        pass
+    return {"recent_checks": recent, "demo_mode": False}
+
+
+def _build_result_context(answer_text: str, report: dict, check_id: int = 0) -> dict:
     """Builds template context dictionary from real pipeline results."""
     from claim_extractor.extractor import extract_claims
-    claims = extract_claims(answer_text)
-    claim_map = {str(c.get("claim_id")): c.get("text", "") for c in claims}
+    claims_extracted = extract_claims(answer_text) if answer_text else []
+    claim_map = {str(c.get("claim_id")): c.get("text", "") for c in claims_extracted}
 
     verdicts = report.get("verdicts", [])
-    enriched = []
+    claims = []
     for v in verdicts:
         cid = str(v.get("claim_id", ""))
-        item = dict(v)
-        item["claim_text"] = claim_map.get(cid, "")
-        enriched.append(item)
+        text = v.get("claim_text") or v.get("text") or claim_map.get(cid) or f"Claim {cid}"
+        raw_conf = float(v.get("confidence", 0.0))
+        conf = round(raw_conf * 100) if raw_conf <= 1.0 else round(raw_conf)
+        claims.append({
+            "id": cid,
+            "text": text,
+            "label": v.get("label", "UNVERIFIED"),
+            "confidence": conf,
+            "evidence": v.get("evidence", []),
+        })
 
-    highlighted_html = _highlight_text(answer_text, enriched)
+    raw_score = float(report.get("hallucination_score", 0.0))
+    score = int(raw_score) if raw_score == int(raw_score) else round(raw_score, 2)
 
-    supported = sum(1 for v in enriched if v.get("label") == "SUPPORTED")
-    contradicted = sum(1 for v in enriched if v.get("label") == "CONTRADICTED")
-    unverified = sum(1 for v in enriched if v.get("label") == "UNVERIFIED")
+    counts = {
+        "SUPPORTED": sum(1 for c in claims if c["label"] == "SUPPORTED"),
+        "CONTRADICTED": sum(1 for c in claims if c["label"] == "CONTRADICTED"),
+        "UNVERIFIED": sum(1 for c in claims if c["label"] == "UNVERIFIED"),
+    }
+    total = len(claims)
+    evidence_claims = sum(1 for c in claims if bool(c.get("evidence")))
+    evidence_coverage = round(100 * evidence_claims / total) if total else 0
+    contradiction_rate = round(100 * counts["CONTRADICTED"] / total) if total else 0
 
-    score = float(report.get("hallucination_score", 0.0))
-    if score < 20:
-        verdict_label = "LOW RISK"
-        verdict_color = "#10b981"
-    elif score < 50:
-        verdict_label = "MODERATE RISK"
-        verdict_color = "#f59e0b"
+    if counts["CONTRADICTED"] and contradiction_rate >= 35:
+        profile = "Contradiction signal"
+        next_step = "Prioritise contradicted claims and compare their cited passages with the original wording."
+    elif counts["UNVERIFIED"]:
+        profile = "Evidence gaps"
+        next_step = "Look for independent, reliable sources for claims marked unverified before relying on them."
+    elif counts["CONTRADICTED"]:
+        profile = "Mixed signals"
+        next_step = "Review each contradicted claim; a small number of conflicts can still matter."
     else:
-        verdict_label = "HIGH RISK"
-        verdict_color = "#ef4444"
+        profile = "Evidence-backed pattern"
+        next_step = "The current report found support for the checked claims; still verify high-impact facts at their source."
+
+    fingerprint = {
+        "profile": profile,
+        "evidence_coverage": evidence_coverage,
+        "contradiction_rate": contradiction_rate,
+        "evidence_claims": evidence_claims,
+        "total_claims": total,
+        "next_step": next_step,
+    }
+
+    data = {
+        "claims": claims,
+        "score": score,
+        "counts": counts,
+        "fingerprint": fingerprint,
+    }
+
+    row = {
+        "id": check_id,
+        "answer": answer_text,
+        "score": score,
+        "n_claims": total,
+    }
 
     return {
+        "data": data,
+        "row": row,
         "answer_text": answer_text,
-        "highlighted_html": highlighted_html,
-        "verdicts": enriched,
+        "verdicts": verdicts,
         "hallucination_score": score,
-        "verdict_label": verdict_label,
-        "verdict_color": verdict_color,
-        "supported": supported,
-        "contradicted": contradicted,
-        "unverified": unverified,
-        "total": len(enriched),
+        "supported": counts["SUPPORTED"],
+        "contradicted": counts["CONTRADICTED"],
+        "unverified": counts["UNVERIFIED"],
+        "total": total,
     }
 
 
@@ -265,28 +327,29 @@ def _build_result_context(answer_text: str, report: dict) -> dict:
 # Routes
 # ---------------------------------------------------------------------------
 
-@app.route("/", methods=["GET"])
-def index():
-    return render_template("index.html")
+@app.route("/", methods=["GET"], endpoint="home")
+@app.route("/index", methods=["GET"], endpoint="index")
+def home():
+    return render_template("home.html")
 
 
 @app.route("/check", methods=["POST"])
 def check():
-    answer_text = (request.form.get("answer_text") or "").strip()
+    answer_text = (request.form.get("answer_text") or request.form.get("answer") or "").strip()
     if not answer_text:
-        return render_template("index.html", error="paste an answer first"), 400
+        return render_template("home.html", error="paste an answer first"), 400
 
     from verification.pipeline import run_pipeline
     report = run_pipeline(answer_text)
 
     # Persist in SQLite
-    save_check(answer_text, report)
+    check_id = save_check(answer_text, report)
 
-    ctx = _build_result_context(answer_text, report)
+    ctx = _build_result_context(answer_text, report, check_id=check_id)
     return render_template("results.html", **ctx)
 
 
-@app.route("/history")
+@app.route("/history", methods=["GET"])
 def history():
     db = get_db()
     rows = db.execute(
@@ -298,22 +361,53 @@ def history():
         LIMIT 200
         """
     ).fetchall()
-    return render_template("history.html", rows=rows)
+
+    checks = []
+    for r in rows:
+        sc = float(r["hallucination_score"])
+        fmt_score = int(sc) if sc == int(sc) else round(sc, 2)
+        n_claims = r["supported_count"] + r["contradicted_count"] + r["unverified_count"]
+        snippet = r["answer_text"][:140]
+        checks.append({
+            "id": r["id"],
+            "created_at": r["timestamp"],
+            "answer": r["answer_text"],
+            "snippet": snippet,
+            "score": fmt_score,
+            "n_claims": n_claims,
+        })
+
+    stats = {
+        "total": len(checks),
+        "avg_score": round(sum(c["score"] for c in checks) / len(checks)) if checks else 0,
+        "claims": sum(c["n_claims"] for c in checks),
+    }
+
+    return render_template("history.html", checks=checks, stats=stats, rows=rows)
 
 
-@app.route("/history/<int:check_id>")
+@app.route("/history/<int:check_id>", methods=["GET"])
+@app.route("/results/<int:check_id>", methods=["GET"], endpoint="results")
 def history_detail(check_id: int):
     db = get_db()
     row = db.execute(
-        "SELECT answer_text, report_json FROM checks WHERE id = ?", (check_id,)
+        "SELECT id, timestamp, answer_text, report_json, hallucination_score FROM checks WHERE id = ?", (check_id,)
     ).fetchone()
     if not row:
         return redirect(url_for("history"))
 
     answer_text = row["answer_text"]
     report = json.loads(row["report_json"])
-    ctx = _build_result_context(answer_text, report)
+    ctx = _build_result_context(answer_text, report, check_id=check_id)
     return render_template("results.html", **ctx)
+
+
+@app.route("/history/<int:check_id>/delete", methods=["POST"], endpoint="delete_history")
+def delete_history(check_id: int):
+    db = get_db()
+    db.execute("DELETE FROM checks WHERE id = ?", (check_id,))
+    db.commit()
+    return redirect(url_for("history"))
 
 
 # ---------------------------------------------------------------------------

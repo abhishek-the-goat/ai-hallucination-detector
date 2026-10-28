@@ -1,68 +1,35 @@
 {% extends "base.html" %}
-{% block title %}AI Hallucination Detector — Check Answer{% endblock %}
-
-{% block content %}
-<div class="index-layout">
-  <div class="hero-block">
-    <h1 class="hero-heading">
-      Verify AI-Generated Content for <span class="gradient-text">Hallucinations</span>
-    </h1>
-    <p class="hero-subheading">
-      Extract factual claims from AI text, retrieve ground-truth passages from Wikipedia, and verify entailment using deep natural language inference.
-    </p>
-  </div>
-
-  {% if error %}
-  <div class="alert-error">
-    <span class="alert-icon">⚠</span>
-    <span>{{ error }}</span>
-  </div>
-  {% endif %}
-
-  <div class="glass-card tilt-card form-container">
-    <form method="POST" action="{{ url_for('check') }}" id="check-form">
-      <div class="form-header">
-        <label for="answer_text" class="field-label">Paste AI Answer</label>
-        <span class="field-hint">Enter the text you want to evaluate</span>
-      </div>
-
-      <textarea
-        name="answer_text"
-        id="answer_text"
-        placeholder="Paste an AI-generated answer here to decompose into atomic claims and verify against trusted sources..."
-        rows="9"
-        required
-      ></textarea>
-
-      <div class="form-actions">
-        <span class="pipeline-note">Models loaded in memory: DeBERTa-v3 NLI + MiniLM embeddings + FAISS index</span>
-        <button type="submit" class="btn-submit" id="submit-btn">
-          <span class="btn-text">Check for Hallucinations</span>
-          <span class="btn-spinner hidden" id="spinner"></span>
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
+{% block hero %}
+<section class="hero">
+  <div class="hero-kicker"><span class="hero-pulse"></span> CLAIM-LEVEL VERIFICATION</div>
+  <h1>Don't just read the answer.<br><span class="hero-gradient">Interrogate its evidence.</span></h1>
+  <p>Turn confident-sounding AI text into a claim-by-claim evidence map. See what is supported, contradicted, or still unverified.</p>
+  {% if error %}<p class="flash" role="alert">{{ error }}</p>{% endif %}
+  <form id="check-form" class="island" method="post" action="{{ url_for('check') }}">
+    <label for="answer" class="sr">Paste AI Answer</label>
+    <textarea id="answer" name="answer_text" required minlength="20" placeholder="Paste AI Answer to check"></textarea>
+    <div class="island-foot">
+      <span id="count" class="muted">0 characters · minimum 20</span>
+      <button type="submit" id="submit-btn"><span>Analyse claims</span><span aria-hidden="true">⟶</span></button>
+    </div>
+    <div id="status" class="analysis-status" role="status" aria-live="polite" hidden>
+      <span class="analysis-spinner" aria-hidden="true"></span>
+      <span class="analysis-status-copy"><strong>Verification in progress</strong><small>Waiting for the configured pipeline to return. Timing depends on the pipeline.</small>
+        <span class="analysis-steps"><span class="analysis-step done"><i>✓</i> Text submitted</span><span class="analysis-step active"><i>↻</i> Waiting for response</span><span class="analysis-step"><i>3</i> Report view</span></span>
+      </span>
+    </div>
+  </form>
+</section>
 {% endblock %}
-
-{% block scripts %}
-<script>
-  const form = document.getElementById('check-form');
-  form.addEventListener('submit', (e) => {
-    const textarea = document.getElementById('answer_text');
-    if (!textarea.value || !textarea.value.trim()) {
-      e.preventDefault();
-      alert('paste an answer first');
-      return;
-    }
-    const btn = document.getElementById('submit-btn');
-    const text = btn.querySelector('.btn-text');
-    const spinner = document.getElementById('spinner');
-    text.textContent = 'Verifying Claims...';
-    spinner.classList.remove('hidden');
-    // Delay disabling button so form submission payload is sent reliably
-    setTimeout(() => { btn.disabled = true; }, 20);
-  });
-</script>
+{% block content %}
+<ul class="legend-row" aria-label="How to read results">
+  <li class="supported"><span class="badge supported">Supported</span><br>Evidence in the corpus backs the claim.</li>
+  <li class="contradicted"><span class="badge contradicted">Contradicted</span><br>Evidence says the opposite.</li>
+  <li class="unverified"><span class="badge unverified">Unverified</span><br>No strong evidence either way.</li>
+</ul>
+<section class="method-strip">
+  <div><span class="method-number">01</span><strong>Claim extraction</strong><p>Breaks an answer into checkable statements.</p></div>
+  <div><span class="method-number">02</span><strong>Evidence trail</strong><p>Inspect the passages behind each verdict.</p></div>
+  <div><span class="method-number">03</span><strong>Risk fingerprint</strong><p>Summarises evidence coverage and contradictions.</p></div>
+</section>
 {% endblock %}
