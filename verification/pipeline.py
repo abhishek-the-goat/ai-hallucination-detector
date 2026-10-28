@@ -1,35 +1,7 @@
+import verification.models  # Ensures PyTorch CPU accelerator patch is active
+from claim_extractor.extractor import extract_claims
+from retrieval.search import retrieve_evidence
 from verification.engine import verify_claim
-
-
-# MOCK - replace after teammates merge
-def extract_claims(answer_text: str) -> list:
-    """
-    Mock claim extractor that splits answer_text by '.' into claims.
-    Returns: list of {"claim_id": str, "text": str}
-    """
-    if not answer_text:
-        return []
-    sentences = [s.strip() for s in answer_text.split(".") if s.strip()]
-    return [{"claim_id": f"C{i}", "text": s} for i, s in enumerate(sentences, 1)]
-
-
-# MOCK - replace after teammates merge
-def retrieve_evidence(claim_text: str, k: int = 5) -> list:
-    """
-    Mock retrieval function returning a fixed evidence list.
-    """
-    return [
-        {
-            "text": (
-                "The Eiffel Tower is a wrought-iron lattice tower in Paris, France. "
-                "It was designed by Gustave Eiffel, completed in 1889 for the Exposition Universelle, "
-                "and stands 330 metres tall."
-            ),
-            "source_title": "Eiffel Tower - Wikipedia",
-            "source_url": "https://en.wikipedia.org/wiki/Eiffel_Tower",
-            "score": 0.92,
-        }
-    ]
 
 
 def run_pipeline(answer_text: str) -> dict:
@@ -39,8 +11,8 @@ def run_pipeline(answer_text: str) -> dict:
     Returns Report:
         {"verdicts": list, "hallucination_score": float}
     """
-    claims = extract_claims(answer_text)
-    total_claims = len(claims)
+    raw_claims = extract_claims(answer_text)
+    total_claims = len(raw_claims)
 
     if total_claims == 0:
         return {"verdicts": [], "hallucination_score": 0.0}
@@ -49,8 +21,23 @@ def run_pipeline(answer_text: str) -> dict:
     contradicted_count = 0
     unverified_count = 0
 
-    for claim in claims:
-        evidence = retrieve_evidence(claim["text"], k=5)
+    for raw_claim in raw_claims:
+        # Adapt Claim shape: ensure claim_id is str and text is str for verify_claim contract
+        claim = {
+            "claim_id": str(raw_claim.get("claim_id", "")),
+            "text": raw_claim.get("text", ""),
+        }
+        raw_evidence = retrieve_evidence(claim["text"], k=5)
+        # Adapt Evidence shape: ensure text, source_title, source_url, and score keys
+        evidence = [
+            {
+                "text": ev.get("text", ""),
+                "source_title": ev.get("source_title", ""),
+                "source_url": ev.get("source_url", ""),
+                "score": float(ev.get("score", 0.0)),
+            }
+            for ev in raw_evidence
+        ]
         verdict = verify_claim(claim, evidence)
         verdicts.append(verdict)
 
@@ -66,3 +53,4 @@ def run_pipeline(answer_text: str) -> dict:
         "verdicts": verdicts,
         "hallucination_score": hallucination_score,
     }
+
