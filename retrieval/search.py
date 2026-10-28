@@ -124,6 +124,7 @@ def _doc_to_evidence(
 def retrieve_evidence(
     claim_text: str,
     k: int = 5,
+    live: bool = False,
     *,
     _documents: Optional[list[Document]] = None,
     _bm25: Optional[BM25Index] = None,
@@ -137,6 +138,9 @@ def retrieve_evidence(
     claim_text : The factual claim to search evidence for.
     k          : Maximum number of Evidence dicts to return. Must be >= 1.
                  Values <= 0 are treated as 1.
+    live       : If True, query live Wikipedia via MediaWiki API, falling
+                 back to the static corpus on network errors or empty results.
+                 Defaults to False (offline static corpus index).
 
     Private parameters (for testing / dependency injection only)
     -------------------------------------------------------------
@@ -150,13 +154,9 @@ def retrieve_evidence(
         text, source_title, source_url, score, raw_similarity, cosine_similarity
 
     - At most *k* results are returned.
-    - Results are sorted by combined score descending.
+    - Results are sorted by score descending.
     - Returns [] for blank claims, invalid k, or an empty corpus.
-    - Never fabricates evidence; only real corpus passages are returned.
-
-    Raises
-    ------
-    RuntimeError : if the corpus is empty and no indexes can be built.
+    - Never fabricates evidence; only real passages are returned.
     """
     # --- Guard: blank claim ---
     if not claim_text or not claim_text.strip():
@@ -165,7 +165,18 @@ def retrieve_evidence(
     # --- Guard: k ---
     k = max(1, int(k))
 
-    # --- Obtain indexes ---
+    # --- Optional live Wikipedia retrieval ---
+    if live:
+        try:
+            from retrieval.live_search import retrieve_live_evidence
+            live_results = retrieve_live_evidence(claim_text, k=k)
+            if live_results:
+                return live_results
+        except Exception:
+            # Fall back to static corpus index on any error or timeout
+            pass
+
+    # --- Obtain static corpus indexes ---
     if _bm25 is not None and _vector is not None:
         bm25_idx, vector_idx = _bm25, _vector
     else:

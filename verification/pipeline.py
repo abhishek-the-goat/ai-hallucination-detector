@@ -26,12 +26,12 @@ def run_pipeline(answer_text: str) -> dict:
             "claim_id": str(raw_claim.get("claim_id", "")),
             "text": raw_claim.get("text", ""),
         }
-        raw_evidence = retrieve_evidence(claim["text"], k=5)
+        raw_evidence = retrieve_evidence(claim["text"], k=5, live=True)
 
         # Drop any evidence whose raw similarity is below 0.5
         filtered_evidence = [
             ev for ev in raw_evidence
-            if float(ev.get("raw_similarity", ev.get("cosine_similarity", 0.0))) >= 0.5
+            if float(ev.get("raw_similarity", ev.get("cosine_similarity", ev.get("score", 0.0)))) >= 0.5
         ]
 
         # If all evidence is below 0.5, mark UNVERIFIED with no evidence shown
