@@ -22,26 +22,26 @@ def test_index_route(client):
     response = client.get("/")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert "AEGIS" in html or "Hallucination" in html
-    assert "TARGET PAYLOAD INPUT" in html
+    assert "Hallucination" in html
+    assert "Paste AI Answer" in html
 
 
 def test_history_route_empty_or_existing(client):
     response = client.get("/history")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert "Historical Verification" in html or "Audit" in html
+    assert "Verification History" in html
 
 
 def test_save_and_retrieve_history(client):
     with app.app_context():
-        fake_report = {
+        report_data = {
             "verdicts": [
                 {
                     "claim_id": "1",
                     "label": "SUPPORTED",
                     "confidence": 0.95,
-                    "evidence": [{"source_title": "Test Source", "score": 0.88, "text": "Sample"}]
+                    "evidence": [{"source_title": "Test Source", "score": 0.88, "text": "Sample text", "source_url": ""}]
                 },
                 {
                     "claim_id": "2",
@@ -52,14 +52,14 @@ def test_save_and_retrieve_history(client):
             ],
             "hallucination_score": 50.0
         }
-        check_id = save_check("The moon is made of green cheese. The sun is hot.", fake_report)
+        check_id = save_check("The Eiffel Tower is in Paris. The Eiffel Tower is in Berlin.", report_data)
         assert check_id > 0
 
     # Retrieve history
     response = client.get("/history")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert f"AUDIT #{check_id}" in html
+    assert "50%" in html
 
     # Retrieve history detail
     detail = client.get(f"/history/{check_id}")

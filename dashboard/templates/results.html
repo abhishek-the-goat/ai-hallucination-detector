@@ -1,234 +1,117 @@
 {% extends "base.html" %}
-{% block title %}Audit Results ({{ hallucination_score|int }}% Score) — Aegis-3D{% endblock %}
+{% block title %}Verification Results — AI Hallucination Detector{% endblock %}
 
 {% block content %}
-<section class="results-container">
+<div class="results-layout">
 
-  <!-- ── 3D Top Deck: Holographic Gauge & Interactive 3D Constellation ── -->
-  <div class="results-deck">
-
-    <!-- Holographic Score HUD -->
-    <div class="glass-card tilt-card score-hud-card">
-      <div class="hud-card-header">
-        <span class="hud-label">VERIFICATION METRIC</span>
-        <span class="hud-indicator" style="background: {{ verdict_color }}"></span>
+  <!-- ── 1. Big Hallucination Score Display at the Top ──────────────── -->
+  <div class="glass-card tilt-card score-banner">
+    <div class="score-main">
+      <div class="score-metric">
+        <span class="score-value" style="color: {{ verdict_color }}">{{ hallucination_score|int }}%</span>
+        <span class="score-label">Hallucination Score</span>
       </div>
 
-      <div class="score-display-row">
-        <!-- Circular 3D-styled SVG Ring -->
-        <div class="gauge-ring-shell">
-          <svg class="hud-ring-svg" viewBox="0 0 140 140" width="160" height="160">
-            <defs>
-              <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="{{ verdict_color }}" stop-opacity="1"/>
-                <stop offset="100%" stop-color="#00f0ff" stop-opacity="0.8"/>
-              </linearGradient>
-              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
-            </defs>
-            <circle class="ring-track" cx="70" cy="70" r="58" />
-            <circle class="ring-progress" cx="70" cy="70" r="58"
-                    stroke="url(#ringGrad)"
-                    filter="url(#glow)"
-                    stroke-dasharray="{{ (hallucination_score / 100 * 364.4)|round(1) }} 364.4"
-                    stroke-dashoffset="0" />
-          </svg>
-          <div class="ring-inner-data">
-            <span class="ring-score-val">{{ hallucination_score|int }}<span class="pct">%</span></span>
-            <span class="ring-score-caption">HALLUCINATION</span>
-          </div>
+      <div class="score-meta-block">
+        <div class="verdict-tag" style="border-color: {{ verdict_color }}; color: {{ verdict_color }}; background: {{ verdict_color }}15;">
+          {{ verdict_label }}
         </div>
-
-        <div class="verdict-summary">
-          <div class="verdict-status-badge" style="border-color: {{ verdict_color }}; color: {{ verdict_color }}; background: {{ verdict_color }}18;">
-            {{ verdict_label }}
-          </div>
-          <p class="verdict-subtitle">{{ verdict_sub }}</p>
-
-          <div class="verdict-counter-strip">
-            <div class="vstrip-item vstrip-green">
-              <span class="vstrip-num">{{ supported }}</span>
-              <span class="vstrip-label">SUPPORTED</span>
-            </div>
-            <div class="vstrip-item vstrip-red">
-              <span class="vstrip-num">{{ contradicted }}</span>
-              <span class="vstrip-label">CONTRADICTED</span>
-            </div>
-            <div class="vstrip-item vstrip-yellow">
-              <span class="vstrip-num">{{ unverified }}</span>
-              <span class="vstrip-label">UNVERIFIED</span>
-            </div>
-          </div>
+        <div class="counts-strip">
+          <span class="count-pill pill-supported">✓ {{ supported }} Supported</span>
+          <span class="count-pill pill-contradicted">✕ {{ contradicted }} Contradicted</span>
+          <span class="count-pill pill-unverified">? {{ unverified }} Unverified</span>
         </div>
-      </div>
-
-      <div class="score-card-actions">
-        <a href="{{ url_for('index') }}" class="cyber-btn-outline">← AUDIT NEW TEXT</a>
-        <a href="{{ url_for('history') }}" class="cyber-btn-outline">VIEW AUDIT LOGS</a>
       </div>
     </div>
 
-    <!-- Interactive 3D Claim Constellation Canvas -->
-    <div class="glass-card tilt-card constellation-card">
-      <div class="constellation-header">
-        <div class="constellation-title-group">
-          <span class="hud-label">INTERACTIVE 3D PROPOSITION SPACE</span>
-          <span class="constellation-hint">Drag to rotate 3D view · Click nodes to inspect</span>
-        </div>
-        <div class="constellation-legend">
-          <span class="cleg-item"><i class="cleg-dot dot-green"></i> Supported</span>
-          <span class="cleg-item"><i class="cleg-dot dot-red"></i> Contradicted</span>
-          <span class="cleg-item"><i class="cleg-dot dot-yellow"></i> Unverified</span>
-        </div>
-      </div>
-      <div class="constellation-canvas-wrap" id="constellation-wrap">
-        <canvas id="constellation-canvas"></canvas>
-        <div class="constellation-tooltip" id="constellation-tooltip"></div>
-      </div>
+    <div class="score-actions">
+      <a href="{{ url_for('index') }}" class="btn-ghost">← Check Another Answer</a>
+      <a href="{{ url_for('history') }}" class="btn-ghost">View History</a>
     </div>
-
   </div>
 
-  <!-- ── Original Annotated Text View ────────────────────────────────── -->
-  <div class="section-container">
-    <div class="section-header-hud">
-      <span class="hud-label">DECONSTRUCTED PAYLOAD</span>
-      <h2 class="section-title">ORIGINAL ANSWER WITH INLINE CLAIM ENTAILMENT</h2>
+  <!-- ── 2. Original Answer with Claims Highlighted Inline ──────────── -->
+  <section class="section-card-wrap">
+    <div class="section-title-bar">
+      <h2 class="section-title">Original Answer with Inline Claim Highlights</h2>
+      <div class="highlight-legend">
+        <span class="legend-item"><span class="legend-box box-supported"></span> Supported</span>
+        <span class="legend-item"><span class="legend-box box-contradicted"></span> Contradicted</span>
+        <span class="legend-item"><span class="legend-box box-unverified"></span> Unverified</span>
+      </div>
     </div>
 
-    <div class="glass-card tilt-card annotated-document">
-      <div class="doc-lines-decor">
-        <div class="doc-badge">GROUND-TRUTH VERIFIED</div>
-        <div class="doc-meta">TOTAL EXTRACTED CLAIMS: {{ total }}</div>
-      </div>
-      <div class="doc-body-text">
+    <div class="glass-card tilt-card highlighted-document">
+      <div class="document-text">
         {{ highlighted_html | safe }}
       </div>
-      <div class="doc-legend-footer">
-        <span class="doc-leg-title">VERDICT KEY:</span>
-        <span class="leg-pill leg-green"><mark class="claim-supported sample-mark">SAMPLE</mark> Entailed by Wikipedia Evidence</span>
-        <span class="leg-pill leg-red"><mark class="claim-contradicted sample-mark">SAMPLE</mark> Directly Contradicts Trusted Passages</span>
-        <span class="leg-pill leg-yellow"><mark class="claim-unverified sample-mark">SAMPLE</mark> Insufficient / Inconclusive Evidence</span>
-      </div>
     </div>
-  </div>
+  </section>
 
-  <!-- ── Detailed Claim-by-Claim Evidence Panel ─────────────────────── -->
-  <div class="section-container">
-    <div class="section-header-hud">
-      <span class="hud-label">EVIDENCE AUDIT DOSSIER</span>
-      <h2 class="section-title">INDIVIDUAL CLAIM BREAKDOWN &amp; RETRIEVED SOURCES</h2>
-    </div>
+  <!-- ── 3. Claim-by-Claim Breakdown with Evidence Panels ───────────── -->
+  <section class="section-card-wrap">
+    <h2 class="section-title">Claim Breakdown &amp; Retrieved Evidence</h2>
 
     {% if not verdicts %}
-      <div class="glass-card empty-audit-state">
-        <p>No verifiable atomic claims were detected in the submitted text.</p>
-      </div>
+    <div class="glass-card empty-panel">
+      <p>No verifiable factual claims were extracted from this answer.</p>
+    </div>
     {% endif %}
 
-    <div class="claims-stack">
+    <div class="claims-list">
       {% for v in verdicts %}
       {% set label_lower = v.label | lower %}
-      <div class="glass-card tilt-card claim-panel claim-panel-{{ label_lower }}" id="claim-card-{{ v.claim_id }}">
+      <div class="glass-card tilt-card claim-card claim-card-{{ label_lower }}" id="claim-{{ v.claim_id }}">
         
-        <!-- Claim Top Bar -->
-        <div class="claim-panel-header">
-          <div class="claim-meta-left">
-            <span class="claim-id-tag">CLAIM #{{ v.claim_id }}</span>
-            <span class="badge-verdict badge-{{ label_lower }}">
-              {% if v.label == 'SUPPORTED' %}✓ ENTAILED
-              {% elif v.label == 'CONTRADICTED' %}✕ CONTRADICTION
+        <!-- Claim header -->
+        <div class="claim-card-header">
+          <div class="claim-left-meta">
+            <span class="claim-id-badge">Claim #{{ v.claim_id }}</span>
+            <span class="verdict-badge verdict-badge-{{ label_lower }}">
+              {% if v.label == 'SUPPORTED' %}✓ SUPPORTED
+              {% elif v.label == 'CONTRADICTED' %}✕ CONTRADICTED
               {% else %}? UNVERIFIED{% endif %}
             </span>
           </div>
 
-          <div class="claim-meta-right">
-            <div class="confidence-indicator">
-              <span class="conf-text">CONFIDENCE: <strong>{{ (v.confidence * 100)|round(1) }}%</strong></span>
-              <div class="conf-bar-shell">
-                <div class="conf-bar-fill bar-{{ label_lower }}" style="width: {{ (v.confidence * 100)|round(1) }}%;"></div>
-              </div>
-            </div>
+          <div class="claim-right-meta">
+            <span class="confidence-badge">Confidence: {{ (v.confidence * 100)|round(1) }}%</span>
           </div>
         </div>
 
-        <!-- Decontextualized Proposition -->
-        <div class="claim-statement-box">
-          <span class="statement-prefix">EXTRACTED PROPOSITION:</span>
-          <p class="claim-statement-text">{{ v.claim_text }}</p>
-        </div>
+        <!-- Extracted claim text -->
+        <p class="claim-content">{{ v.claim_text }}</p>
 
-        <!-- Collapsible Evidence Panel -->
-        {% if v.evidence %}
-        <details class="evidence-accordion" {% if loop.index <= 2 %}open{% endif %}>
-          <summary class="accordion-trigger">
-            <span class="accordion-title">
-              <span class="arrow">▶</span> RETRIEVED GROUND-TRUTH PASSAGES
-              <span class="ev-badge">{{ v.evidence | length }} PASSAGE{{ 'S' if v.evidence | length != 1 }}</span>
-            </span>
-            <span class="accordion-hint">Click to toggle sources</span>
-          </summary>
+        <!-- Evidence panel -->
+        <div class="evidence-panel">
+          <h3 class="evidence-panel-title">Retrieved Evidence Passages ({{ v.evidence|length }})</h3>
 
-          <div class="accordion-body">
+          {% if v.evidence %}
+          <div class="evidence-list">
             {% for ev in v.evidence %}
             <div class="evidence-item">
-              <div class="ev-top">
-                <div class="ev-source-info">
-                  <span class="ev-icon">📄</span>
-                  <span class="ev-source-title">{{ ev.source_title }}</span>
-                </div>
-                <div class="ev-badges">
-                  <span class="ev-score-badge">RETRIEVAL SCORE: {{ "%.3f"|format(ev.score) }}</span>
+              <div class="evidence-item-header">
+                <span class="evidence-source">
+                  {{ ev.source_title }}
                   {% if ev.source_url %}
-                  <a href="{{ ev.source_url }}" target="_blank" rel="noopener noreferrer" class="ev-external-link">
-                    WIKIPEDIA ↗
-                  </a>
+                  <a href="{{ ev.source_url }}" target="_blank" rel="noopener noreferrer" class="evidence-link">↗ source</a>
                   {% endif %}
-                </div>
+                </span>
+                <span class="evidence-score">Relevance Score: {{ "%.3f"|format(ev.score) }}</span>
               </div>
-              <blockquote class="ev-passage-quote">
-                {{ ev.text }}
-              </blockquote>
+              <blockquote class="evidence-text">{{ ev.text }}</blockquote>
             </div>
             {% endfor %}
           </div>
-        </details>
-        {% else %}
-        <div class="no-evidence-banner">
-          <span>⚠ No matching evidence passages found in the trusted index.</span>
+          {% else %}
+          <p class="no-evidence-text">No matching evidence passages retrieved from the index.</p>
+          {% endif %}
         </div>
-        {% endif %}
 
       </div>
       {% endfor %}
     </div>
+  </section>
 
-  </div>
-
-</section>
-{% endblock %}
-
-{% block scripts %}
-<!-- Pass verdicts data to JavaScript for 3D Constellation rendering -->
-<script>
-  window.VERDICTS_DATA = {{ verdicts_json | safe }};
-  window.HALLUCINATION_SCORE = {{ hallucination_score }};
-</script>
-<script src="{{ url_for('static', filename='js/constellation3d.js') }}"></script>
-<script>
-  // Link inline claim highlight clicks to scroll directly to the claim card
-  document.querySelectorAll('.inline-claim').forEach(el => {
-    el.addEventListener('click', () => {
-      const cid = el.getAttribute('data-claim-id');
-      const card = document.getElementById(`claim-card-${cid}`);
-      if (card) {
-        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        card.classList.add('pulse-glow');
-        setTimeout(() => card.classList.remove('pulse-glow'), 1200);
-      }
-    });
-  });
-</script>
+</div>
 {% endblock %}

@@ -1,89 +1,62 @@
 {% extends "base.html" %}
-{% block title %}Audit Logs — Aegis-3D Hallucination Detector{% endblock %}
+{% block title %}Audit History — AI Hallucination Detector{% endblock %}
 
 {% block content %}
-<section class="history-container">
-
-  <div class="history-header">
-    <div class="hud-tag">
-      <span class="tag-dot"></span> PERSISTENT AUDIT VAULT
+<div class="history-layout">
+  <div class="history-title-row">
+    <div>
+      <h1 class="page-heading">Verification History</h1>
+      <p class="page-subheading">Past hallucination checks stored in SQLite. Click any item to re-view its full results.</p>
     </div>
-    <h1 class="history-title">
-      Historical Verification <span class="gradient-text-cyan">Logs</span>
-    </h1>
-    <p class="history-sub">
-      Immutable SQLite record of executed pipeline verifications. Select any audit to reconstruct the full 3D proposition space and evidence dossier.
-    </p>
+    <a href="{{ url_for('index') }}" class="btn-primary-small">+ New Check</a>
   </div>
 
   {% if not rows %}
-  <div class="glass-card empty-history tilt-card">
-    <div class="empty-icon">🗄️</div>
-    <h3>No Historical Audits Recorded</h3>
-    <p>Submit an AI response from the analyser console to generate your first audit record.</p>
-    <a href="{{ url_for('index') }}" class="cyber-btn-outline">GO TO ANALYSER →</a>
+  <div class="glass-card empty-history">
+    <p>No checks recorded yet in history.</p>
+    <a href="{{ url_for('index') }}" class="btn-ghost">Run your first verification →</a>
   </div>
   {% else %}
-  <div class="history-grid-3d">
+  <div class="history-list">
     {% for row in rows %}
     {% set score = row['hallucination_score'] %}
     {% if score < 20 %}
-      {% set risk_cls = 'tier-trusted' %}
-      {% set risk_label = 'TRUSTED' %}
       {% set risk_color = '#10b981' %}
+      {% set risk_label = 'LOW RISK' %}
     {% elif score < 50 %}
-      {% set risk_cls = 'tier-questionable' %}
-      {% set risk_label = 'QUESTIONABLE' %}
       {% set risk_color = '#f59e0b' %}
+      {% set risk_label = 'MODERATE' %}
     {% else %}
-      {% set risk_cls = 'tier-danger' %}
-      {% set risk_label = 'HALLUCINATED' %}
       {% set risk_color = '#ef4444' %}
+      {% set risk_label = 'HIGH RISK' %}
     {% endif %}
 
-    <a href="{{ url_for('history_detail', check_id=row['id']) }}" class="glass-card tilt-card history-card-3d {{ risk_cls }}">
-      <!-- Card HUD Top -->
-      <div class="hcard-header">
-        <div class="hcard-id-block">
-          <span class="hcard-seq">AUDIT #{{ row['id'] }}</span>
-          <span class="hcard-time">{{ row['timestamp'] }} UTC</span>
-        </div>
-        <div class="hcard-badge" style="border-color: {{ risk_color }}; color: {{ risk_color }}; background: {{ risk_color }}1a;">
-          {{ risk_label }}
+    <a href="{{ url_for('history_detail', check_id=row['id']) }}" class="glass-card tilt-card history-item">
+      <div class="history-item-left">
+        <div class="history-score-tag" style="border-color: {{ risk_color }}; color: {{ risk_color }}; background: {{ risk_color }}18;">
+          <span class="h-score-val">{{ score|int }}%</span>
+          <span class="h-score-lbl">{{ risk_label }}</span>
         </div>
       </div>
 
-      <!-- Hallucination score readout -->
-      <div class="hcard-score-gauge">
-        <div class="hscore-number" style="color: {{ risk_color }}">
-          {{ score|int }}<span class="hscore-pct">%</span>
-        </div>
-        <div class="hscore-meta">
-          <span class="hscore-label">HALLUCINATION RISK</span>
-          <div class="hscore-bar-shell">
-            <div class="hscore-bar-fill" style="width: {{ score|int }}%; background: {{ risk_color }};"></div>
+      <div class="history-item-body">
+        <p class="history-snippet">{{ row['answer_text'][:160] }}{% if row['answer_text']|length > 160 %}…{% endif %}</p>
+        <div class="history-meta-bar">
+          <span class="history-timestamp">{{ row['timestamp'] }} UTC</span>
+          <div class="history-counts">
+            <span class="h-count h-count-green">✓ {{ row['supported_count'] }} Supported</span>
+            <span class="h-count h-count-red">✕ {{ row['contradicted_count'] }} Contradicted</span>
+            <span class="h-count h-count-yellow">? {{ row['unverified_count'] }} Unverified</span>
           </div>
         </div>
       </div>
 
-      <!-- Payload snippet -->
-      <p class="hcard-payload-preview">
-        "{{ row['answer_text'][:140] }}{% if row['answer_text']|length > 140 %}…{% endif %}"
-      </p>
-
-      <!-- Bottom Verdict Counters -->
-      <div class="hcard-footer">
-        <div class="hcard-counts">
-          <span class="hchip hchip-green">✓ {{ row['supported_count'] }}</span>
-          <span class="hchip hchip-red">✕ {{ row['contradicted_count'] }}</span>
-          <span class="hchip hchip-yellow">? {{ row['unverified_count'] }}</span>
-        </div>
-        <span class="hcard-reconstruct">RECONSTRUCT 3D ↗</span>
+      <div class="history-item-arrow">
+        <span>→</span>
       </div>
     </a>
     {% endfor %}
   </div>
   {% endif %}
-
-</section>
+</div>
 {% endblock %}

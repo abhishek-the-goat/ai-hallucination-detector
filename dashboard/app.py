@@ -1,16 +1,16 @@
 """
 dashboard/app.py
 ----------------
-Flask web dashboard for the AI Hallucination Detector with high-aesthetic 3D UI.
+Flask web dashboard for the AI Hallucination Detector.
 
 Routes:
-    GET  /         — paste-answer form with interactive 3D neural core
-    POST /check    — run_pipeline on submitted text, render results + 3D constellation
-    GET  /history  — past checks from SQLite, newest first
-    GET  /history/<id> — view specific check result
+    GET  /         — paste-answer form
+    POST /check    — runs run_pipeline on submitted text, renders results
+    GET  /history  — past checks from SQLite (newest first, clickable to re-view)
+    GET  /history/<id> — re-view a past check from SQLite
 
-Models are loaded ONCE at startup via _warm_up_models() so that DeBERTa +
-MiniLM embeddings + FAISS index are ready before the first request arrives.
+Models are loaded ONCE at startup so that DeBERTa + MiniLM embeddings +
+FAISS index are ready before incoming requests.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Ensure repo root is on sys.path regardless of how app.py is started
+# Ensure repo root is on sys.path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -50,20 +50,20 @@ app.secret_key = os.environ.get("FLASK_SECRET", "hallucination-detector-3d-secre
 # ---------------------------------------------------------------------------
 
 def get_db() -> sqlite3.Connection:
-    """Return a per-request SQLite connection, creating the schema if needed."""
+    """Return a per-request SQLite connection, creating schema if needed."""
     if "db" not in g:
         g.db = sqlite3.connect(str(DB_PATH))
         g.db.row_factory = sqlite3.Row
         g.db.execute("""
             CREATE TABLE IF NOT EXISTS checks (
-                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp          TEXT    NOT NULL,
-                answer_text        TEXT    NOT NULL,
-                hallucination_score REAL   NOT NULL,
-                supported_count    INTEGER NOT NULL DEFAULT 0,
-                contradicted_count INTEGER NOT NULL DEFAULT 0,
-                unverified_count   INTEGER NOT NULL DEFAULT 0,
-                report_json        TEXT    NOT NULL
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp           TEXT    NOT NULL,
+                answer_text         TEXT    NOT NULL,
+                hallucination_score REAL    NOT NULL,
+                supported_count     INTEGER NOT NULL DEFAULT 0,
+                contradicted_count  INTEGER NOT NULL DEFAULT 0,
+                unverified_count    INTEGER NOT NULL DEFAULT 0,
+                report_json         TEXT    NOT NULL
             )
         """)
         g.db.commit()
@@ -78,7 +78,7 @@ def close_db(exc=None):
 
 
 def save_check(answer_text: str, report: dict) -> int:
-    """Persist a pipeline report and return the new row id."""
+    """Persist check record in SQLite."""
     verdicts = report.get("verdicts", [])
     supported = sum(1 for v in verdicts if v.get("label") == "SUPPORTED")
     contradicted = sum(1 for v in verdicts if v.get("label") == "CONTRADICTED")
@@ -112,18 +112,18 @@ def save_check(answer_text: str, report: dict) -> int:
 
 def _warm_up_models():
     """
-    Import and trigger lazy model loading so DeBERTa + MiniLM + FAISS index
-    are fully ready before the first HTTP request.
+    Import and trigger lazy model loading once at startup so that
+    DeBERTa + MiniLM + FAISS index are ready before incoming requests.
     """
-    print("[dashboard] Warming up pipeline models … (DeBERTa + MiniLM + FAISS)")
+    print("[dashboard] Warming up pipeline models once at startup...")
     try:
         from verification.models import _load_models
         _load_models()
         from retrieval.search import retrieve_evidence
-        retrieve_evidence("warm up query", k=1)
-        print("[dashboard] Models ready — serving requests.")
+        retrieve_evidence("startup warm up", k=1)
+        print("[dashboard] Pipeline models are ready.")
     except Exception as e:
-        print(f"[dashboard] Warning during warm up: {e}")
+        print(f"[dashboard] Note during warmup: {e}")
 
 
 if "pytest" not in sys.modules:
@@ -136,8 +136,8 @@ if "pytest" not in sys.modules:
 
 def _highlight_text(answer_text: str, verdicts: list[dict]) -> str:
     """
-    Return HTML where each verified claim span is highlighted inline.
-    Green for SUPPORTED, red for CONTRADICTED, yellow for UNVERIFIED,
+    Highlights each verified claim inline in the original answer text:
+    green for SUPPORTED, red for CONTRADICTED, yellow for UNVERIFIED,
     with an inline confidence % badge.
     """
     text = answer_text
@@ -152,20 +152,19 @@ def _highlight_text(answer_text: str, verdicts: list[dict]) -> str:
         start_idx = -1
         match_len = len(claim_text)
 
-        # 1. Direct exact or lowercase match
+        # 1. Exact or lowercase match
         direct = lower_text.find(claim_text.lower())
         if direct != -1:
             start_idx = direct
             match_len = len(claim_text)
         else:
-            # 2. Try prefix or significant subphrase if decontextualized
+            # 2. Match significant leading subphrase if decontextualized
             words = claim_text.split()
             for window_size in range(min(len(words), 8), 2, -1):
                 subphrase = " ".join(words[:window_size]).lower()
                 cand = lower_text.find(subphrase)
                 if cand != -1:
                     start_idx = cand
-                    # Extend until punctuation
                     end_punct = re.search(r"[.!?\n]|$", text[cand:])
                     match_len = end_punct.start() if end_punct else len(subphrase)
                     break
@@ -176,7 +175,6 @@ def _highlight_text(answer_text: str, verdicts: list[dict]) -> str:
             if not any(not (end_idx <= s or start_idx >= e) for s, e, _ in annotations):
                 annotations.append((start_idx, end_idx, v))
 
-    # Sort annotations by position
     annotations.sort(key=lambda x: x[0])
 
     label_classes = {
@@ -195,7 +193,7 @@ def _highlight_text(answer_text: str, verdicts: list[dict]) -> str:
         cls = label_classes.get(label, "claim-unverified")
         cid = v.get("claim_id", "")
         parts.append(
-            f'<mark class="{cls} inline-claim" data-claim-id="{cid}" id="claim-highlight-{cid}">'
+            f'<mark class="{cls} inline-claim" data-claim-id="{cid}">'
             f'{_esc(text[start:end])}'
             f'<span class="conf-badge">{conf}%</span>'
             f'</mark>'
@@ -209,7 +207,7 @@ def _highlight_text(answer_text: str, verdicts: list[dict]) -> str:
 
 
 def _esc(s: str) -> str:
-    """Minimal HTML escape for safe template rendering."""
+    """Minimal HTML escape."""
     return (
         s.replace("&", "&amp;")
         .replace("<", "&lt;")
@@ -219,10 +217,7 @@ def _esc(s: str) -> str:
 
 
 def _build_result_context(answer_text: str, report: dict) -> dict:
-    """
-    Build context dictionary for results page including enriched verdict data
-    and serialized JSON for interactive 3D visualizations.
-    """
+    """Builds template context dictionary from real pipeline results."""
     from claim_extractor.extractor import extract_claims
     claims = extract_claims(answer_text)
     claim_map = {str(c.get("claim_id")): c.get("text", "") for c in claims}
@@ -243,27 +238,22 @@ def _build_result_context(answer_text: str, report: dict) -> dict:
 
     score = float(report.get("hallucination_score", 0.0))
     if score < 20:
-        verdict_label = "TRUSTED"
-        verdict_color = "#10b981"  # Emerald
-        verdict_sub = "High confidence in factual alignment"
+        verdict_label = "LOW RISK"
+        verdict_color = "#10b981"
     elif score < 50:
-        verdict_label = "QUESTIONABLE"
-        verdict_color = "#f59e0b"  # Amber
-        verdict_sub = "Contains unverified or partially conflicting statements"
+        verdict_label = "MODERATE RISK"
+        verdict_color = "#f59e0b"
     else:
-        verdict_label = "HIGH HALLUCINATION"
-        verdict_color = "#ef4444"  # Crimson
-        verdict_sub = "Critical contradictions detected with ground-truth sources"
+        verdict_label = "HIGH RISK"
+        verdict_color = "#ef4444"
 
     return {
         "answer_text": answer_text,
         "highlighted_html": highlighted_html,
         "verdicts": enriched,
-        "verdicts_json": json.dumps(enriched),
         "hallucination_score": score,
         "verdict_label": verdict_label,
         "verdict_color": verdict_color,
-        "verdict_sub": verdict_sub,
         "supported": supported,
         "contradicted": contradicted,
         "unverified": unverified,
@@ -323,8 +313,6 @@ def history_detail(check_id: int):
     answer_text = row["answer_text"]
     report = json.loads(row["report_json"])
     ctx = _build_result_context(answer_text, report)
-    ctx["from_history"] = True
-    ctx["check_id"] = check_id
     return render_template("results.html", **ctx)
 
 

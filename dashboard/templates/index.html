@@ -1,148 +1,53 @@
 {% extends "base.html" %}
-{% block title %}Verify Answer — Aegis-3D Hallucination Detector{% endblock %}
+{% block title %}AI Hallucination Detector — Check Answer{% endblock %}
 
 {% block content %}
-<section class="hero-container">
-
-  <!-- ── 3D Hero Visualizer Row ────────────────────────────────────── -->
-  <div class="hero-header-row">
-    <div class="hero-copy">
-      <div class="hud-tag">
-        <span class="tag-dot"></span> REAL-TIME FACTUAL AUDITING ENGINE
-      </div>
-      <h1 class="hero-title">
-        Detect AI <span class="gradient-text-cyan">Hallucinations</span><br>
-        In Multidimensional Space
-      </h1>
-      <p class="hero-description">
-        Deconstruct generated outputs into atomic propositions. Verify each claim across hybrid dense vectors and lexical corpora with deep NLI reasoning.
-      </p>
-    </div>
-
-    <!-- 3D Interactive Floating Core -->
-    <div class="hero-visual-wrap">
-      <div class="orb-canvas-container tilt-card" id="orb-container">
-        <canvas id="hero-orb-canvas" width="320" height="260"></canvas>
-        <div class="orb-overlay-hud">
-          <span class="hud-coord">SYS: READY</span>
-          <span class="hud-freq">FREQ: 1420 MHZ</span>
-        </div>
-      </div>
-    </div>
+<div class="index-layout">
+  <div class="hero-block">
+    <h1 class="hero-heading">
+      Verify AI-Generated Content for <span class="gradient-text">Hallucinations</span>
+    </h1>
+    <p class="hero-subheading">
+      Extract factual claims from AI text, retrieve ground-truth passages from Wikipedia, and verify entailment using deep natural language inference.
+    </p>
   </div>
 
-  <!-- ── Main Glass Input Console ──────────────────────────────────── -->
-  <div class="glass-console tilt-card" id="input-console">
-    <div class="console-header">
-      <div class="console-title-group">
-        <span class="terminal-prompt">root@aegis:~#</span>
-        <h2 class="console-title">TARGET PAYLOAD INPUT</h2>
-      </div>
-      <div class="console-presets">
-        <span class="preset-label">LOAD PRESETS:</span>
-        <button type="button" class="preset-btn" onclick="loadPreset('eiffel')">🗼 Eiffel Tower</button>
-        <button type="button" class="preset-btn" onclick="loadPreset('einstein')">⚛ Einstein</button>
-        <button type="button" class="preset-btn" onclick="loadPreset('hallucinated')">🚨 Deep Hallucination</button>
-      </div>
-    </div>
-
-    <form method="POST" action="{{ url_for('check') }}" id="audit-form">
-      <div class="textarea-shell">
-        <div class="line-gutter">
-          <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span>
-        </div>
-        <textarea
-          name="answer_text"
-          id="answer_text"
-          placeholder="Paste AI response here for autonomous factual decomposition and NLI entailment auditing..."
-          rows="7"
-          required
-        ></textarea>
+  <div class="glass-card tilt-card form-container">
+    <form method="POST" action="{{ url_for('check') }}" id="check-form">
+      <div class="form-header">
+        <label for="answer_text" class="field-label">Paste AI Answer</label>
+        <span class="field-hint">Enter the text you want to evaluate</span>
       </div>
 
-      <div class="console-footer">
-        <div class="pipeline-spec">
-          <span class="spec-item"><i class="dot green"></i> Spacy / Coref Decomposition</span>
-          <span class="spec-item"><i class="dot blue"></i> FAISS + BM25 Hybrid Retrieval</span>
-          <span class="spec-item"><i class="dot purple"></i> DeBERTa-v3 Cross-Verification</span>
-        </div>
+      <textarea
+        name="answer_text"
+        id="answer_text"
+        placeholder="Paste an AI-generated answer here to decompose into atomic claims and verify against trusted sources..."
+        rows="9"
+        required
+      ></textarea>
 
-        <button type="submit" class="cyber-btn" id="submit-btn">
-          <span class="cyber-btn-glitch"></span>
-          <span class="cyber-btn-content">
-            <span class="btn-icon">⚡</span>
-            <span class="btn-label">INITIATE AUDIT</span>
-            <span class="spinner-3d hidden" id="btn-spinner"></span>
-          </span>
+      <div class="form-actions">
+        <span class="pipeline-note">Models loaded in memory: DeBERTa-v3 NLI + MiniLM embeddings + FAISS index</span>
+        <button type="submit" class="btn-submit" id="submit-btn">
+          <span class="btn-text">Check for Hallucinations</span>
+          <span class="btn-spinner hidden" id="spinner"></span>
         </button>
       </div>
     </form>
   </div>
-
-  <!-- ── Engine Metrics Grid ───────────────────────────────────────── -->
-  <div class="metrics-grid">
-    <div class="metric-card tilt-card">
-      <div class="metric-icon">🧠</div>
-      <div class="metric-val">DeBERTa-v3</div>
-      <div class="metric-lbl">Natural Language Inference</div>
-      <div class="metric-desc">Cross-evaluates premise entailment vs contradiction</div>
-    </div>
-
-    <div class="metric-card tilt-card">
-      <div class="metric-icon">📚</div>
-      <div class="metric-val">390 Passages</div>
-      <div class="metric-lbl">Ground-Truth Wikipedia Corpus</div>
-      <div class="metric-desc">Segmented into ~250-word contextual documents</div>
-    </div>
-
-    <div class="metric-card tilt-card">
-      <div class="metric-icon">⚡</div>
-      <div class="metric-val">Hybrid FAISS</div>
-      <div class="metric-lbl">Dense + BM25 Dual-Ranked</div>
-      <div class="metric-desc">Semantic cosine (60%) combined with lexical BM25 (40%)</div>
-    </div>
-
-    <div class="metric-card tilt-card">
-      <div class="metric-icon">🗄️</div>
-      <div class="metric-val">SQLite Log</div>
-      <div class="metric-lbl">Full Audit Trail</div>
-      <div class="metric-desc">Instant recall of past checks with breakdown metrics</div>
-    </div>
-  </div>
-
-</section>
+</div>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/heroOrb.js') }}"></script>
 <script>
-  // Presets loader
-  const presets = {
-    eiffel: "The Eiffel Tower is located in Paris, France. It was built in 1889 for the World's Fair. The tower was designed by Gustave Eiffel. The Eiffel Tower is in Berlin.",
-    einstein: "Albert Einstein was a German-born theoretical physicist widely acknowledged to be one of the greatest and most influential physicists of all time. He won the Nobel Prize in Physics in 1921. Albert Einstein was born on Mars.",
-    hallucinated: "The Eiffel Tower was constructed on the Moon in the year 2045. It was commissioned by Napoleon Bonaparte to communicate with aliens in the Andromeda galaxy."
-  };
-
-  function loadPreset(key) {
-    const textarea = document.getElementById('answer_text');
-    if (presets[key]) {
-      textarea.value = presets[key];
-      textarea.focus();
-      // Trigger subtle pulse effect on container
-      const console = document.getElementById('input-console');
-      console.classList.add('pulse-glow');
-      setTimeout(() => console.classList.remove('pulse-glow'), 600);
-    }
-  }
-
-  // Submit button loader
-  const form = document.getElementById('audit-form');
+  const form = document.getElementById('check-form');
   form.addEventListener('submit', () => {
     const btn = document.getElementById('submit-btn');
-    const label = btn.querySelector('.btn-label');
-    const spinner = document.getElementById('btn-spinner');
+    const text = btn.querySelector('.btn-text');
+    const spinner = document.getElementById('spinner');
     btn.disabled = true;
-    label.textContent = 'AUDITING PIPELINE...';
+    text.textContent = 'Verifying Claims...';
     spinner.classList.remove('hidden');
   });
 </script>
