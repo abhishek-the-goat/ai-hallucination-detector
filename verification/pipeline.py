@@ -22,6 +22,7 @@ def run_pipeline(answer_text: str) -> dict:
     unverified_count = 0
 
     for raw_claim in raw_claims:
+        # Adapt Claim shape: ensure claim_id is str and text is str for verify_claim contract
         claim = {
             "claim_id": str(raw_claim.get("claim_id", "")),
             "text": raw_claim.get("text", ""),
@@ -44,7 +45,6 @@ def run_pipeline(answer_text: str) -> dict:
             }
         else:
             verdict = verify_claim(claim, filtered_evidence)
-
         verdicts.append(verdict)
 
         if verdict["label"] == "CONTRADICTED":
