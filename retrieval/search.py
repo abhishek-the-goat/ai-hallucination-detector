@@ -15,7 +15,8 @@ Hybrid retrieval strategy
 4. Compute a combined score:
        combined = BM25_WEIGHT * bm25_normalised + VECTOR_WEIGHT * cosine_score
    where bm25_normalised = raw_bm25 / max_raw_bm25  (range [0, 1]).
-5. Sort combined candidates descending, return the best k as Evidence dicts.
+5. Sort combined candidates descending, return the best k as Evidence dicts,
+   including both the fused hybrid score and the raw cosine similarity.
 
 Nothing in this module triggers a model load or network call on import.
 """
@@ -38,12 +39,6 @@ VECTOR_WEIGHT: float = 0.60
 # Evidence type alias (plain dict to match verification.engine contract)
 # ---------------------------------------------------------------------------
 
-# Evidence = {
-#   "text":         str,
-#   "source_title": str,
-#   "source_url":   str,
-#   "score":        float,   # combined retrieval score in [0.0, 1.0]
-# }
 Evidence = dict
 
 
@@ -104,13 +99,20 @@ def _merge_results(
     return merged
 
 
-def _doc_to_evidence(doc: Document, score: float) -> Evidence:
+def _doc_to_evidence(
+    doc: Document,
+    score: float,
+    raw_similarity: Optional[float] = None,
+) -> Evidence:
     """Convert a Document + score into the Evidence contract dict."""
+    raw_sim = score if raw_similarity is None else raw_similarity
     return {
-        "text":         doc.text,
-        "source_title": doc.source_title,
-        "source_url":   doc.source_url,
-        "score":        round(float(score), 6),
+        "text":              doc.text,
+        "source_title":      doc.source_title,
+        "source_url":        doc.source_url,
+        "score":             round(float(score), 6),
+        "raw_similarity":    round(float(raw_sim), 6),
+        "cosine_similarity": round(float(raw_sim), 6),
     }
 
 
@@ -145,7 +147,7 @@ def retrieve_evidence(
     Returns
     -------
     list of Evidence dicts, each with keys:
-        text, source_title, source_url, score
+        text, source_title, source_url, score, raw_similarity, cosine_similarity
 
     - At most *k* results are returned.
     - Results are sorted by combined score descending.
@@ -180,9 +182,12 @@ def retrieve_evidence(
     # --- Merge, deduplicate, rank ---
     merged = _merge_results(bm25_results, vector_results)
 
-    # --- Build Evidence list ---
+    # --- Map raw cosine similarity scores from vector index ---
+    vector_scores: dict[str, float] = {doc.id: score for score, doc in vector_results}
+
+    # --- Build Evidence list with both fused score and raw similarity ---
     evidence: list[Evidence] = [
-        _doc_to_evidence(doc, score)
+        _doc_to_evidence(doc, score, raw_similarity=vector_scores.get(doc.id, 0.0))
         for score, doc in merged[:k]
     ]
 

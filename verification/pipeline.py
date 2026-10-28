@@ -1,35 +1,7 @@
+import verification.models  # Ensures PyTorch CPU accelerator patch is active
+from claim_extractor.extractor import extract_claims
+from retrieval.search import retrieve_evidence
 from verification.engine import verify_claim
-
-
-# MOCK - replace after teammates merge
-def extract_claims(answer_text: str) -> list:
-    """
-    Mock claim extractor that splits answer_text by '.' into claims.
-    Returns: list of {"claim_id": str, "text": str}
-    """
-    if not answer_text:
-        return []
-    sentences = [s.strip() for s in answer_text.split(".") if s.strip()]
-    return [{"claim_id": f"C{i}", "text": s} for i, s in enumerate(sentences, 1)]
-
-
-# MOCK - replace after teammates merge
-def retrieve_evidence(claim_text: str, k: int = 5) -> list:
-    """
-    Mock retrieval function returning a fixed evidence list.
-    """
-    return [
-        {
-            "text": (
-                "The Eiffel Tower is a wrought-iron lattice tower in Paris, France. "
-                "It was designed by Gustave Eiffel, completed in 1889 for the Exposition Universelle, "
-                "and stands 330 metres tall."
-            ),
-            "source_title": "Eiffel Tower - Wikipedia",
-            "source_url": "https://en.wikipedia.org/wiki/Eiffel_Tower",
-            "score": 0.92,
-        }
-    ]
 
 
 def run_pipeline(answer_text: str) -> dict:
@@ -39,8 +11,8 @@ def run_pipeline(answer_text: str) -> dict:
     Returns Report:
         {"verdicts": list, "hallucination_score": float}
     """
-    claims = extract_claims(answer_text)
-    total_claims = len(claims)
+    raw_claims = extract_claims(answer_text)
+    total_claims = len(raw_claims)
 
     if total_claims == 0:
         return {"verdicts": [], "hallucination_score": 0.0}
@@ -49,9 +21,30 @@ def run_pipeline(answer_text: str) -> dict:
     contradicted_count = 0
     unverified_count = 0
 
-    for claim in claims:
-        evidence = retrieve_evidence(claim["text"], k=5)
-        verdict = verify_claim(claim, evidence)
+    for raw_claim in raw_claims:
+        claim = {
+            "claim_id": str(raw_claim.get("claim_id", "")),
+            "text": raw_claim.get("text", ""),
+        }
+        raw_evidence = retrieve_evidence(claim["text"], k=5)
+
+        # Drop any evidence whose raw similarity is below 0.5
+        filtered_evidence = [
+            ev for ev in raw_evidence
+            if float(ev.get("raw_similarity", ev.get("cosine_similarity", 0.0))) >= 0.5
+        ]
+
+        # If all evidence is below 0.5, mark UNVERIFIED with no evidence shown
+        if not filtered_evidence:
+            verdict = {
+                "claim_id": claim["claim_id"],
+                "label": "UNVERIFIED",
+                "confidence": 0.3,
+                "evidence": [],
+            }
+        else:
+            verdict = verify_claim(claim, filtered_evidence)
+
         verdicts.append(verdict)
 
         if verdict["label"] == "CONTRADICTED":

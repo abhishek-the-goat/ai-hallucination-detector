@@ -12,6 +12,13 @@
     </p>
   </div>
 
+  {% if error %}
+  <div class="alert-error">
+    <span class="alert-icon">⚠</span>
+    <span>{{ error }}</span>
+  </div>
+  {% endif %}
+
   <div class="glass-card tilt-card form-container">
     <form method="POST" action="{{ url_for('check') }}" id="check-form">
       <div class="form-header">
@@ -42,13 +49,20 @@
 {% block scripts %}
 <script>
   const form = document.getElementById('check-form');
-  form.addEventListener('submit', () => {
+  form.addEventListener('submit', (e) => {
+    const textarea = document.getElementById('answer_text');
+    if (!textarea.value || !textarea.value.trim()) {
+      e.preventDefault();
+      alert('paste an answer first');
+      return;
+    }
     const btn = document.getElementById('submit-btn');
     const text = btn.querySelector('.btn-text');
     const spinner = document.getElementById('spinner');
-    btn.disabled = true;
     text.textContent = 'Verifying Claims...';
     spinner.classList.remove('hidden');
+    // Delay disabling button so form submission payload is sent reliably
+    setTimeout(() => { btn.disabled = true; }, 20);
   });
 </script>
 {% endblock %}

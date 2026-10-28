@@ -185,6 +185,24 @@ body.dark-theme {
   line-height: 1.6;
 }
 
+.alert-error {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--red-bg);
+  border: 1px solid var(--red-border);
+  color: var(--red);
+  padding: 0.9rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.92rem;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.alert-icon {
+  font-size: 1.1rem;
+}
+
 .form-container {
   padding: 2rem;
 }

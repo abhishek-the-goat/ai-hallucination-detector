@@ -52,7 +52,7 @@ def test_save_and_retrieve_history(client):
             ],
             "hallucination_score": 50.0
         }
-        check_id = save_check("The Eiffel Tower is in Paris. The Eiffel Tower is in Berlin.", report_data)
+        check_id = save_check("Photosynthesis occurs in plants and algae. DNA carries genetic instructions.", report_data)
         assert check_id > 0
 
     # Retrieve history
@@ -67,3 +67,10 @@ def test_save_and_retrieve_history(client):
     detail_html = detail.get_data(as_text=True)
     assert "SUPPORTED" in detail_html
     assert "CONTRADICTED" in detail_html
+
+
+def test_empty_check_shows_paste_an_answer_first(client):
+    response = client.post("/check", data={"answer_text": "   "})
+    assert response.status_code == 400
+    html = response.get_data(as_text=True)
+    assert "paste an answer first" in html

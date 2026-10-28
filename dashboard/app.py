@@ -274,7 +274,7 @@ def index():
 def check():
     answer_text = (request.form.get("answer_text") or "").strip()
     if not answer_text:
-        return redirect(url_for("index"))
+        return render_template("index.html", error="paste an answer first"), 400
 
     from verification.pipeline import run_pipeline
     report = run_pipeline(answer_text)
