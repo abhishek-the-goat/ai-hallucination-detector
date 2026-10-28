@@ -1,117 +1,76 @@
 {% extends "base.html" %}
-{% block title %}Verification Results — AI Hallucination Detector{% endblock %}
-
+{% block title %}Check #{{ row.id if row else '' }} · Hallucination Detector{% endblock %}
 {% block content %}
-<div class="results-layout">
-
-  <!-- ── 1. Big Hallucination Score Display at the Top ──────────────── -->
-  <div class="glass-card tilt-card score-banner">
-    <div class="score-main">
-      <div class="score-metric">
-        <span class="score-value" style="color: {{ verdict_color }}">{{ hallucination_score|int }}%</span>
-        <span class="score-label">Hallucination Score</span>
-      </div>
-
-      <div class="score-meta-block">
-        <div class="verdict-tag" style="border-color: {{ verdict_color }}; color: {{ verdict_color }}; background: {{ verdict_color }}15;">
-          {{ verdict_label }}
-        </div>
-        <div class="counts-strip">
-          <span class="count-pill pill-supported">✓ {{ supported }} Supported</span>
-          <span class="count-pill pill-contradicted">✕ {{ contradicted }} Contradicted</span>
-          <span class="count-pill pill-unverified">? {{ unverified }} Unverified</span>
-        </div>
-      </div>
+<section class="summary">
+  <div class="score score-with-gauge">
+    <div class="score-gauge" style="--score:{{ data.score }}" role="img" aria-label="{{ data.score }} percent of claims were not marked supported">
+      <span class="score-num">{{ data.score }}<small>%</small></span>
     </div>
-
-    <div class="score-actions">
-      <a href="{{ url_for('index') }}" class="btn-ghost">← Check Another Answer</a>
-      <a href="{{ url_for('history') }}" class="btn-ghost">View History</a>
-    </div>
+    <span class="score-label">Hallucination signal<br><span class="muted">{{ data.score }}% of claims were not marked supported</span><span class="gauge-note">Report indicator, not a truth probability</span></span>
   </div>
+  {% set total = data.claims|length or 1 %}
+  <div class="bar" role="img" aria-label="{{ data.counts.SUPPORTED }} supported, {{ data.counts.CONTRADICTED }} contradicted, {{ data.counts.UNVERIFIED }} unverified">
+    <span class="seg supported" style="flex:{{ data.counts.SUPPORTED }}"></span>
+    <span class="seg contradicted" style="flex:{{ data.counts.CONTRADICTED }}"></span>
+    <span class="seg unverified" style="flex:{{ data.counts.UNVERIFIED }}"></span>
+  </div>
+  <ul class="counts">
+    <li><span class="badge supported">Supported</span> {{ data.counts.SUPPORTED }}</li>
+    <li><span class="badge contradicted">Contradicted</span> {{ data.counts.CONTRADICTED }}</li>
+    <li><span class="badge unverified">Unverified</span> {{ data.counts.UNVERIFIED }}</li>
+  </ul>
+  <button class="ghost no-print" onclick="window.print()">Print report</button>
+</section>
 
-  <!-- ── 2. Original Answer with Claims Highlighted Inline ──────────── -->
-  <section class="section-card-wrap">
-    <div class="section-title-bar">
-      <h2 class="section-title">Original Answer with Inline Claim Highlights</h2>
-      <div class="highlight-legend">
-        <span class="legend-item"><span class="legend-box box-supported"></span> Supported</span>
-        <span class="legend-item"><span class="legend-box box-contradicted"></span> Contradicted</span>
-        <span class="legend-item"><span class="legend-box box-unverified"></span> Unverified</span>
-      </div>
-    </div>
+<section class="fingerprint" aria-labelledby="fingerprint-title">
+  <div class="fingerprint-head">
+    <div><span class="eyebrow">YOUR REPORT SIGNATURE</span><h2 id="fingerprint-title">Hallucination fingerprint</h2></div>
+    <span class="fingerprint-profile">{{ data.fingerprint.profile }}</span>
+  </div>
+  <div class="fingerprint-grid">
+    <article class="fingerprint-metric">
+      <span class="metric-icon">◈</span><span class="metric-label">Evidence coverage</span>
+      <strong>{{ data.fingerprint.evidence_coverage }}%</strong>
+      <span class="metric-note">{{ data.fingerprint.evidence_claims }} of {{ data.fingerprint.total_claims }} claims include evidence</span>
+      <div class="metric-track"><span style="width:{{ data.fingerprint.evidence_coverage }}%"></span></div>
+    </article>
+    <article class="fingerprint-metric">
+      <span class="metric-icon">⌁</span><span class="metric-label">Contradiction rate</span>
+      <strong>{{ data.fingerprint.contradiction_rate }}%</strong>
+      <span class="metric-note">Claims marked contradicted</span>
+      <div class="metric-track contradiction-track"><span style="width:{{ data.fingerprint.contradiction_rate }}%"></span></div>
+    </article>
+    <article class="fingerprint-advice">
+      <span class="metric-label">Recommended next move</span>
+      <p>{{ data.fingerprint.next_step }}</p>
+      <span class="advice-tag">INTERPRETABLE REPORT</span>
+    </article>
+  </div>
+  <p class="fingerprint-disclaimer">These indicators describe the detector's returned report, not a guarantee that a claim is true or false.</p>
+</section>
 
-    <div class="glass-card tilt-card highlighted-document">
-      <div class="document-text">
-        {{ highlighted_html | safe }}
-      </div>
-    </div>
-  </section>
+<section class="evidence-network-card" aria-labelledby="network-title">
+  <div class="network-heading"><div><span class="eyebrow">CLAIM RELATIONSHIP MAP</span><h2 id="network-title">Evidence network</h2></div><span class="network-help">Select a claim below to inspect its sources.</span></div>
+  <div id="evidence-network" class="evidence-network" role="img" aria-label="A visual map connecting claims to returned evidence sources"></div>
+  <div class="network-legend"><span class="network-key supported-key">Supported</span><span class="network-key contradicted-key">Contradicted</span><span class="network-key unverified-key">Unverified</span><span class="network-key evidence-key">Evidence source</span></div>
+</section>
 
-  <!-- ── 3. Claim-by-Claim Breakdown with Evidence Panels ───────────── -->
-  <section class="section-card-wrap">
-    <h2 class="section-title">Claim Breakdown &amp; Retrieved Evidence</h2>
-
-    {% if not verdicts %}
-    <div class="glass-card empty-panel">
-      <p>No verifiable factual claims were extracted from this answer.</p>
-    </div>
-    {% endif %}
-
-    <div class="claims-list">
-      {% for v in verdicts %}
-      {% set label_lower = v.label | lower %}
-      <div class="glass-card tilt-card claim-card claim-card-{{ label_lower }}" id="claim-{{ v.claim_id }}">
-        
-        <!-- Claim header -->
-        <div class="claim-card-header">
-          <div class="claim-left-meta">
-            <span class="claim-id-badge">Claim #{{ v.claim_id }}</span>
-            <span class="verdict-badge verdict-badge-{{ label_lower }}">
-              {% if v.label == 'SUPPORTED' %}✓ SUPPORTED
-              {% elif v.label == 'CONTRADICTED' %}✕ CONTRADICTED
-              {% else %}? UNVERIFIED{% endif %}
-            </span>
-          </div>
-
-          <div class="claim-right-meta">
-            <span class="confidence-badge">Confidence: {{ (v.confidence * 100)|round(1) }}%</span>
-          </div>
-        </div>
-
-        <!-- Extracted claim text -->
-        <p class="claim-content">{{ v.claim_text }}</p>
-
-        <!-- Evidence panel -->
-        <div class="evidence-panel">
-          <h3 class="evidence-panel-title">Retrieved Evidence Passages ({{ v.evidence|length }})</h3>
-
-          {% if v.evidence %}
-          <div class="evidence-list">
-            {% for ev in v.evidence %}
-            <div class="evidence-item">
-              <div class="evidence-item-header">
-                <span class="evidence-source">
-                  {{ ev.source_title }}
-                  {% if ev.source_url %}
-                  <a href="{{ ev.source_url }}" target="_blank" rel="noopener noreferrer" class="evidence-link">↗ source</a>
-                  {% endif %}
-                </span>
-                <span class="evidence-score">Relevance Score: {{ "%.3f"|format(ev.score) }}</span>
-              </div>
-              <blockquote class="evidence-text">{{ ev.text }}</blockquote>
-            </div>
-            {% endfor %}
-          </div>
-          {% else %}
-          <p class="no-evidence-text">No matching evidence passages retrieved from the index.</p>
-          {% endif %}
-        </div>
-
-      </div>
+<div class="report">
+  <section aria-label="Claims">
+    <h2>Claims <span class="muted">({{ data.claims|length }})</span></h2>
+    {% if not data.claims %}<p class="muted">No factual claims were found in this answer.</p>{% endif %}
+    <ol class="claims">
+      {% for c in data.claims %}
+      <li style="--i:{{ loop.index0 }}">
+        <button type="button" class="claim {{ c.label|lower }}" data-index="{{ loop.index0 }}">
+          <span class="claim-text">{{ c.text }}</span>
+          <span class="claim-meta"><span class="badge {{ c.label|lower }}">{{ c.label }}</span> {{ c.confidence }}% confidence</span>
+        </button>
+      </li>
       {% endfor %}
-    </div>
+    </ol>
   </section>
-
+  <aside id="evidence" class="evidence" aria-live="polite" aria-label="Evidence inspector"><div class="inspector-empty"><span class="inspector-icon">⌕</span><h2>Evidence inspector</h2><p>Select a claim to review its passages, source links, and relevance scores.</p></div></aside>
 </div>
+<script id="claims-data" type="application/json">{{ data.claims|tojson }}</script>
 {% endblock %}
