@@ -4,7 +4,7 @@ from retrieval.search import retrieve_evidence
 from verification.engine import verify_claim
 
 
-def run_pipeline(answer_text: str) -> dict:
+def run_pipeline(answer_text: str, live: bool = True) -> dict:
     """
     Runs the verification pipeline on answer_text.
 
@@ -27,7 +27,7 @@ def run_pipeline(answer_text: str) -> dict:
             "claim_id": str(raw_claim.get("claim_id", "")),
             "text": raw_claim.get("text", ""),
         }
-        raw_evidence = retrieve_evidence(claim["text"], k=5, live=True)
+        raw_evidence = retrieve_evidence(claim["text"], k=5, live=live)
 
         # Drop any evidence whose raw similarity is below 0.5
         filtered_evidence = [
