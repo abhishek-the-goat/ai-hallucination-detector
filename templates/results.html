@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Check #{{ row.id }} · Hallucination Detector{% endblock %}
+{% block content %}
+<section class="summary">
+  <div class="score score-with-gauge">
+    <div class="score-gauge" style="--score:{{ data.score }}" role="img" aria-label="{{ data.score }} percent of claims were not marked supported">
+      <span class="score-num">{{ data.score }}<small>%</small></span>
+    </div>
+    <span class="score-label">Hallucination signal<br><span class="muted">{{ data.score }}% of claims were not marked supported</span><span class="gauge-note">Report indicator, not a truth probability</span></span>
+  </div>
+  {% set total = data.claims|length or 1 %}
+  <div class="bar" role="img" aria-label="{{ data.counts.SUPPORTED }} supported, {{ data.counts.CONTRADICTED }} contradicted, {{ data.counts.UNVERIFIED }} unverified">
+    <span class="seg supported" style="flex:{{ data.counts.SUPPORTED }}"></span>
+    <span class="seg contradicted" style="flex:{{ data.counts.CONTRADICTED }}"></span>
+    <span class="seg unverified" style="flex:{{ data.counts.UNVERIFIED }}"></span>
+  </div>
+  <ul class="counts">
+    <li><span class="badge supported">Supported</span> {{ data.counts.SUPPORTED }}</li>
+    <li><span class="badge contradicted">Contradicted</span> {{ data.counts.CONTRADICTED }}</li>
+    <li><span class="badge unverified">Unverified</span> {{ data.counts.UNVERIFIED }}</li>
+  </ul>
+  <button class="ghost no-print" onclick="window.print()">Print report</button>
+</section>
+
+<section class="fingerprint" aria-labelledby="fingerprint-title">
+  <div class="fingerprint-head">
+    <div><span class="eyebrow">YOUR REPORT SIGNATURE</span><h2 id="fingerprint-title">Hallucination fingerprint</h2></div>
+    <span class="fingerprint-profile">{{ data.fingerprint.profile }}</span>
+  </div>
+  <div class="fingerprint-grid">
+    <article class="fingerprint-metric">
+      <span class="metric-icon">◈</span><span class="metric-label">Evidence coverage</span>
+      <strong>{{ data.fingerprint.evidence_coverage }}%</strong>
+      <span class="metric-note">{{ data.fingerprint.evidence_claims }} of {{ data.fingerprint.total_claims }} claims include evidence</span>
+      <div class="metric-track"><span style="width:{{ data.fingerprint.evidence_coverage }}%"></span></div>
+    </article>
+    <article class="fingerprint-metric">
+      <span class="metric-icon">⌁</span><span class="metric-label">Contradiction rate</span>
+      <strong>{{ data.fingerprint.contradiction_rate }}%</strong>
+      <span class="metric-note">Claims marked contradicted</span>
+      <div class="metric-track contradiction-track"><span style="width:{{ data.fingerprint.contradiction_rate }}%"></span></div>
+    </article>
+    <article class="fingerprint-advice">
+      <span class="metric-label">Recommended next move</span>
+      <p>{{ data.fingerprint.next_step }}</p>
+      <span class="advice-tag">INTERPRETABLE REPORT</span>
+    </article>
+  </div>
+  <p class="fingerprint-disclaimer">These indicators describe the detector's returned report, not a guarantee that a claim is true or false.</p>
+</section>
+
+<section class="evidence-network-card" aria-labelledby="network-title">
+  <div class="network-heading"><div><span class="eyebrow">CLAIM RELATIONSHIP MAP</span><h2 id="network-title">Evidence network</h2></div><span class="network-help">Select a claim below to inspect its sources.</span></div>
+  <div id="evidence-network" class="evidence-network" role="img" aria-label="A visual map connecting claims to returned evidence sources"></div>
+  <div class="network-legend"><span class="network-key supported-key">Supported</span><span class="network-key contradicted-key">Contradicted</span><span class="network-key unverified-key">Unverified</span><span class="network-key evidence-key">Evidence source</span></div>
+</section>
+
+<div class="report">
+  <section aria-label="Claims">
+    <h2>Claims <span class="muted">({{ data.claims|length }})</span></h2>
+    {% if not data.claims %}<p class="muted">No factual claims were found in this answer.</p>{% endif %}
+    <ol class="claims">
+      {% for c in data.claims %}
+      <li style="--i:{{ loop.index0 }}">
+        <button type="button" class="claim {{ c.label|lower }}" data-index="{{ loop.index0 }}">
+          <span class="claim-text">{{ c.text }}</span>
+          <span class="claim-meta"><span class="badge {{ c.label|lower }}">{{ c.label|capitalize }}</span> {{ c.confidence }}% confidence</span>
+        </button>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+  <aside id="evidence" class="evidence" aria-live="polite" aria-label="Evidence inspector"><div class="inspector-empty"><span class="inspector-icon">⌕</span><h2>Evidence inspector</h2><p>Select a claim to review its passages, source links, and relevance scores.</p></div></aside>
+</div>
+<script id="claims-data" type="application/json">{{ data.claims|tojson }}</script>
+{% endblock %}

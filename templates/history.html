@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}History · Hallucination Detector{% endblock %}
+{% block content %}
+<section class="history-intro">
+  <span class="eyebrow">YOUR WORKSPACE</span>
+  <h1>Analysis history</h1>
+  <p class="muted">Search, filter, revisit, or remove saved reports.</p>
+</section>
+<div class="history-stats">
+  <article><span>Total reports</span><strong>{{ stats.total }}</strong></article>
+  <article><span>Claims reviewed</span><strong>{{ stats.claims }}</strong></article>
+  <article><span>Average signal</span><strong>{{ stats.avg_score }}%</strong></article>
+</div>
+{% if not checks %}
+  <p class="muted empty-history">No checks yet. <a href="{{ url_for('home') }}">Check your first answer.</a></p>
+{% else %}
+<div class="history-toolbar">
+  <label class="history-search">Search reports<input id="history-search" type="search" placeholder="Search answer text…" autocomplete="off"></label>
+  <label>Signal filter<select id="history-filter"><option value="all">All reports</option><option value="low">Low · under 20%</option><option value="medium">Medium · 20–49%</option><option value="high">High · 50%+</option></select></label>
+  <label>Sort by<select id="history-sort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="score-high">Highest signal</option><option value="score-low">Lowest signal</option></select></label>
+  <span id="history-count" class="muted" aria-live="polite">{{ checks|length }} reports</span>
+</div>
+<div class="table-wrap history-table-wrap">
+<table id="history-table">
+  <thead><tr><th>Checked</th><th>Answer</th><th>Claims</th><th>Signal</th><th>Actions</th></tr></thead>
+  <tbody>
+  {% for c in checks %}
+    <tr data-id="{{ c.id }}" data-score="{{ c.score }}" data-date="{{ c.created_at }}" data-search="{{ c.snippet|lower }}">
+      <td class="nowrap">{{ c.created_at[:16] }}</td>
+      <td class="history-snippet">{{ c.snippet }}{% if c.snippet|length >= 140 %}…{% endif %}</td>
+      <td>{{ c.n_claims }}</td>
+      <td><span class="pill {{ 'good' if c.score < 20 else ('warn' if c.score < 50 else 'bad') }}">{{ c.score }}%</span></td>
+      <td class="history-actions"><a class="zoom-link" href="{{ url_for('results', check_id=c.id) }}">View report ↗</a>
+        <form method="post" action="{{ url_for('delete_history', check_id=c.id) }}" class="delete-form" onsubmit="return confirm('Delete report #{{ c.id }} from history? This cannot be undone.');">
+          <button type="submit" class="delete-report" aria-label="Delete report {{ c.id }}" title="Delete report">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p id="history-empty-filter" class="muted" hidden>No reports match these filters.</p>
+</div>
+{% endif %}
+{% endblock %}

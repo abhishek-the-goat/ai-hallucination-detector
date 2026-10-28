@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block hero %}
+<section class="hero">
+  <div class="hero-kicker"><span class="hero-pulse"></span> CLAIM-LEVEL VERIFICATION</div>
+  <h1>Don't just read the answer.<br><span class="hero-gradient">Interrogate its evidence.</span></h1>
+  <p>Turn confident-sounding AI text into a claim-by-claim evidence map. See what is supported, contradicted, or still unverified.</p>
+  <form id="check-form" class="island" method="post" action="{{ url_for('check') }}">
+    <label for="answer" class="sr">AI answer</label>
+    <textarea id="answer" name="answer" required minlength="20" placeholder="Paste an AI answer to check"></textarea>
+    <div class="island-foot">
+      <span id="count" class="muted">0 characters · minimum 20</span>
+      <button type="submit" id="submit-btn"><span>Analyse claims</span><span aria-hidden="true">⟶</span></button>
+    </div>
+    <div id="status" class="analysis-status" role="status" aria-live="polite" hidden>
+      <span class="analysis-spinner" aria-hidden="true"></span>
+      <span class="analysis-status-copy"><strong>Verification in progress</strong><small>Waiting for the configured pipeline to return. Timing depends on the pipeline.</small>
+        <span class="analysis-steps"><span class="analysis-step done"><i>✓</i> Text submitted</span><span class="analysis-step active"><i>↻</i> Waiting for response</span><span class="analysis-step"><i>3</i> Report view</span></span>
+      </span>
+    </div>
+  </form>
+</section>
+{% endblock %}
+{% block content %}
+<ul class="legend-row" aria-label="How to read results">
+  <li class="supported"><span class="badge supported">Supported</span><br>Evidence in the corpus backs the claim.</li>
+  <li class="contradicted"><span class="badge contradicted">Contradicted</span><br>Evidence says the opposite.</li>
+  <li class="unverified"><span class="badge unverified">Unverified</span><br>No strong evidence either way.</li>
+</ul>
+<section class="method-strip">
+  <div><span class="method-number">01</span><strong>Claim extraction</strong><p>Breaks an answer into checkable statements.</p></div>
+  <div><span class="method-number">02</span><strong>Evidence trail</strong><p>Inspect the passages behind each verdict.</p></div>
+  <div><span class="method-number">03</span><strong>Risk fingerprint</strong><p>Summarises evidence coverage and contradictions.</p></div>
+</section>
+{% endblock %}
