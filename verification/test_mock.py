@@ -11,7 +11,7 @@ def main():
     print("Running verification pipeline on mock text:")
     print(f"'{test_text}'\n")
 
-    report = run_pipeline(test_text)
+    report = run_pipeline(test_text, live=False)
 
     print("--- Verdicts ---")
     for v in report["verdicts"]:

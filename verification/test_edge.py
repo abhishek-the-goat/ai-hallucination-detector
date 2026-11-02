@@ -48,7 +48,7 @@ def run_tests():
     for v in report_4["verdicts"]:
         claim_text = (
             "The Eiffel Tower is in Paris"
-            if v["claim_id"] == "C1"
+            if v["claim_id"] in ("C1", "1", 1)
             else "The Eiffel Tower was built in 1889"
         )
         ev_text_4 = retrieve_evidence(claim_text)[0]["text"]
