@@ -8,6 +8,11 @@
     </div>
     <span class="score-label">Hallucination signal<br><span class="muted">{{ data.score }}% of claims were not marked supported</span><span class="gauge-note">Report indicator, not a truth probability</span></span>
   </div>
+  {% if not verdicts and message %}
+  <p class="no-claims-notice" style="margin-top: 1rem; font-size: 1.05rem; line-height: 1.5; color: var(--text, inherit); font-weight: 500;">
+    {{ message }}
+  </p>
+  {% endif %}
   {% set total = data.claims|length or 1 %}
   <div class="bar" role="img" aria-label="{{ data.counts.SUPPORTED }} supported, {{ data.counts.CONTRADICTED }} contradicted, {{ data.counts.UNVERIFIED }} unverified">
     <span class="seg supported" style="flex:{{ data.counts.SUPPORTED }}"></span>
@@ -58,7 +63,7 @@
 <div class="report">
   <section aria-label="Claims">
     <h2>Claims <span class="muted">({{ data.claims|length }})</span></h2>
-    {% if not data.claims %}<p class="muted">No factual claims were found in this answer.</p>{% endif %}
+    {% if not data.claims %}<p class="muted">{{ message if message else "No factual claims were found in this answer." }}</p>{% endif %}
     <ol class="claims">
       {% for c in data.claims %}
       <li style="--i:{{ loop.index0 }}">

@@ -296,11 +296,14 @@ def _build_result_context(answer_text: str, report: dict, check_id: int = 0) -> 
         "next_step": next_step,
     }
 
+    message = report.get("message", "")
+
     data = {
         "claims": claims,
         "score": score,
         "counts": counts,
         "fingerprint": fingerprint,
+        "message": message,
     }
 
     row = {
@@ -315,6 +318,7 @@ def _build_result_context(answer_text: str, report: dict, check_id: int = 0) -> 
         "row": row,
         "answer_text": answer_text,
         "verdicts": verdicts,
+        "message": message,
         "hallucination_score": score,
         "supported": counts["SUPPORTED"],
         "contradicted": counts["CONTRADICTED"],

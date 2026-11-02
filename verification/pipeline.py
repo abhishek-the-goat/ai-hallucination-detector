@@ -1,5 +1,8 @@
 import verification.models  # Ensures PyTorch CPU accelerator patch is active
-from claim_extractor.extractor import extract_claims
+try:
+    from claim_extractor import extract_claims, analyze_claims
+except ImportError:
+    from claim_extractor.extractor import extract_claims, analyze_claims
 from retrieval.search import retrieve_evidence
 from verification.engine import verify_claim
 
@@ -9,13 +12,30 @@ def run_pipeline(answer_text: str, live: bool = True) -> dict:
     Runs the verification pipeline on answer_text.
 
     Returns Report:
-        {"verdicts": list, "hallucination_score": float}
+        {
+            "verdicts": list,
+            "hallucination_score": float,
+            "message": str,
+            "total_claims": int,
+        }
     """
     raw_claims = extract_claims(answer_text)
     total_claims = len(raw_claims)
 
     if total_claims == 0:
-        return {"verdicts": [], "hallucination_score": 0.0}
+        message = "No factual claims to check."
+        try:
+            analysis = analyze_claims(answer_text)
+            if isinstance(analysis, dict) and analysis.get("status_message"):
+                message = str(analysis["status_message"]).strip() or "No factual claims to check."
+        except Exception:
+            pass
+        return {
+            "verdicts": [],
+            "hallucination_score": 0.0,
+            "message": message,
+            "total_claims": 0,
+        }
 
     verdicts = []
     contradicted_count = 0
@@ -58,4 +78,6 @@ def run_pipeline(answer_text: str, live: bool = True) -> dict:
     return {
         "verdicts": verdicts,
         "hallucination_score": hallucination_score,
+        "message": "",
+        "total_claims": total_claims,
     }
