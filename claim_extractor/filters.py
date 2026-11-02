@@ -46,7 +46,7 @@ QUESTION_PATTERNS = [
 # Emotion and subjective feeling patterns
 EMOTION_PATTERNS = [
     r"^(?:i\s+(?:am\s+feeling|feel|am)\s+(?:so\s+|very\s+|really\s+)?(?:sad|happy|angry|depressed|anxious|stressed|excited|lonely|nervous|scared|upset|joyful|exhausted|overwhelmed|heartbroken|furious|mad))\b",
-    r"^(?:i\s+(?:love|hate|adore|despise|cherish|fear|dread|miss))\s+(?:it|you|this|that|them|him|her|everything|life)\b",
+    r"^(?:i\s+(?:love|hate|adore|despise|cherish|fear|dread|miss|like|dislike|enjoy|prefer))\b",
     r"^(?:this\s+(?:makes\s+me\s+(?:feel\s+)?(?:sad|happy|angry|cry)|hurts|breaks\s+my\s+heart|warms\s+my\s+heart))\b",
     r"^(?:my\s+heart\s+is\s+(?:broken|heavy|full|racing))\b",
 ]
