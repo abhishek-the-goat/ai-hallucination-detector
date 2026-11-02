@@ -10,7 +10,8 @@ from typing import List, Dict, Any, Optional, Tuple
 
 from claim_extractor.filters import (
     is_valid_factual_claim,
-    strip_opinion_prefix
+    strip_opinion_prefix,
+    classify_statement
 )
 
 logger = logging.getLogger(__name__)
@@ -131,8 +132,8 @@ def _split_compound_sentence(sentence: str) -> List[str]:
         valid_parts = []
         for p in parts:
             p_clean = p.strip(" .,;")
-            # Ensure each part looks like a full clause with at least 3 words
-            if len(p_clean.split()) >= 3:
+            # Ensure each part looks like a full clause with at least 2 words
+            if len(p_clean.split()) >= 2:
                 valid_parts.append(p_clean)
         if len(valid_parts) > 1:
             return valid_parts
@@ -268,3 +269,92 @@ def extract_claims(answer_text: str) -> List[Claim]:
             current_claim_id += 1
 
     return claims
+
+
+def analyze_claims(answer_text: str) -> Dict[str, Any]:
+    """
+    Analyzes input text, detects whether it contains factual claims or non-factual
+    content (questions, emotions, self-referential dialogue, opinions, advice),
+    and provides an explicit status message indicating what was found.
+    
+    Returns:
+        Dict with:
+            - 'claims': list[Claim] (all checkable factual claims extracted)
+            - 'has_factual_claims': bool (True if at least one verifiable fact is present)
+            - 'status_message': str (Human-readable explanation of what was detected)
+            - 'breakdown': list[dict] (Sentence-by-sentence classification and feedback)
+    """
+    if not answer_text or not isinstance(answer_text, str) or not answer_text.strip():
+        return {
+            "claims": [],
+            "has_factual_claims": False,
+            "status_message": "Input is empty. Please provide text to analyze.",
+            "breakdown": []
+        }
+
+    # Split into raw sentences
+    if nlp is not None:
+        try:
+            doc = nlp(answer_text)
+            raw_sentences = [sent.text.strip() for sent in doc.sents if sent.text.strip()]
+        except Exception:
+            raw_sentences = _split_into_sentences_regex(answer_text)
+    else:
+        raw_sentences = _split_into_sentences_regex(answer_text)
+
+    breakdown = []
+    detected_categories = set()
+
+    for s in raw_sentences:
+        cleaned = re.sub(r"^(?:[-*•]|\d+\.)\s+", "", s).strip()
+        if not cleaned:
+            continue
+        classification = classify_statement(cleaned)
+        breakdown.append(classification)
+        detected_categories.add(classification["category"])
+
+    # Extract actual claims
+    claims = extract_claims(answer_text)
+    has_factual = len(claims) > 0
+
+    # Build human-readable diagnostic message
+    if not has_factual:
+        invalid_items = [item for item in breakdown if item["category"] in {"INVALID", "EMPTY"}]
+        if invalid_items and len(invalid_items) == len(breakdown):
+            msg = invalid_items[0]["message"]
+        else:
+            reasons = []
+            if "INVALID" in detected_categories or "EMPTY" in detected_categories:
+                reasons.append("invalid text (single words or random characters)")
+            if "QUESTION" in detected_categories or "SELF_QUESTION" in detected_categories:
+                reasons.append("questions")
+            if "EMOTION" in detected_categories:
+                reasons.append("personal emotions/feelings")
+            if "SELF_REFERENTIAL" in detected_categories or "SELF_QUESTION" in detected_categories:
+                reasons.append("personal/self-referential dialogue")
+            if "OPINION" in detected_categories:
+                reasons.append("subjective opinions")
+            if "RECOMMENDATION" in detected_categories:
+                reasons.append("advice/recommendations")
+            if "GREETING_FILLER" in detected_categories:
+                reasons.append("conversational greetings/fillers")
+
+            if reasons:
+                reason_str = ", ".join(reasons)
+                msg = f"This is not a factual claim or checkable answer. The input contains {reason_str} rather than verifiable factual claims."
+            else:
+                msg = "This is not a factual claim or checkable answer. No verifiable factual claims were detected."
+    else:
+        non_factual_count = sum(1 for item in breakdown if not item["is_factual_claim"])
+        if non_factual_count > 0:
+            msg = f"Verified {len(claims)} factual claim(s). {non_factual_count} non-factual statement(s) (questions/emotions/opinions) were detected and excluded."
+        else:
+            msg = f"Successfully extracted {len(claims)} verifiable factual claim(s)."
+
+    return {
+        "claims": claims,
+        "total_claims": len(claims),
+        "has_factual_claims": has_factual,
+        "status_message": msg,
+        "breakdown": breakdown
+    }
