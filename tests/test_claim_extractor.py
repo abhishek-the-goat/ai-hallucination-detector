@@ -11,13 +11,19 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import unittest
-from claim_extractor.extractor import extract_claims
+from claim_extractor.extractor import extract_claims, analyze_claims
 from claim_extractor.filters import (
     is_valid_factual_claim,
     is_question,
     is_greeting_or_filler,
     is_recommendation,
-    strip_opinion_prefix
+    is_emotion,
+    is_self_referential,
+    is_single_word,
+    is_random_or_gibberish,
+    has_assertion_predicate,
+    strip_opinion_prefix,
+    classify_statement
 )
 
 
@@ -46,6 +52,56 @@ class TestFilters(unittest.TestCase):
         cleaned2, stripped2 = strip_opinion_prefix("In my opinion, Python is widely used in data science.")
         self.assertTrue(stripped2)
         self.assertEqual(cleaned2, "Python is widely used in data science.")
+
+    def test_emotions_and_self_referential_filtered(self):
+        self.assertTrue(is_emotion("I feel so sad and anxious today."))
+        self.assertTrue(is_emotion("I hate this situation so much."))
+        self.assertFalse(is_emotion("The Pacific Ocean is the largest ocean."))
+
+        self.assertTrue(is_self_referential("Who am I and what is my purpose?"))
+        self.assertTrue(is_self_referential("Are you an AI?"))
+        self.assertTrue(is_self_referential("Tell me about yourself."))
+        self.assertFalse(is_self_referential("Mount Everest is the highest mountain above sea level."))
+
+    def test_single_word_invalid(self):
+        """Single words are invalid and cannot be factual claims."""
+        self.assertTrue(is_single_word("Paris"))
+        self.assertTrue(is_single_word("Apple"))
+        self.assertTrue(is_single_word("hello!"))
+        self.assertFalse(is_single_word("Ice melts."))
+        
+        # Verify classification and validity
+        res = classify_statement("Apple")
+        self.assertEqual(res["category"], "INVALID")
+        self.assertIn("Invalid input", res["message"])
+        self.assertFalse(is_valid_factual_claim("Apple"))
+
+    def test_random_gibberish_invalid(self):
+        """Random characters, keyboard smashing, and verbless words are invalid."""
+        self.assertTrue(is_random_or_gibberish("asdfghjkl"))
+        self.assertTrue(is_random_or_gibberish("12345678"))
+        self.assertTrue(is_random_or_gibberish("qwertyuiop"))
+        self.assertTrue(is_random_or_gibberish("... !!! ???"))
+        self.assertFalse(is_random_or_gibberish("Water boils at 100 degrees Celsius."))
+
+        # Random verbless words
+        self.assertFalse(has_assertion_predicate("table potato chair window"))
+        self.assertFalse(is_valid_factual_claim("table potato chair window"))
+
+        # Verify classification
+        res = classify_statement("asdfghjkl")
+        self.assertEqual(res["category"], "INVALID")
+        self.assertIn("Invalid input", res["message"])
+
+    def test_no_min_word_limit_valid_short_claims(self):
+        """Short 2-word assertions with subject and verb are valid (no 3-word minimum)."""
+        self.assertTrue(is_valid_factual_claim("Ice melts."))
+        self.assertTrue(is_valid_factual_claim("Birds fly."))
+        self.assertTrue(is_valid_factual_claim("Fish swim."))
+        
+        claims = extract_claims("Ice melts.")
+        self.assertEqual(len(claims), 1)
+        self.assertEqual(claims[0]["text"], "Ice melts.")
 
 
 class TestClaimExtractor(unittest.TestCase):
@@ -103,6 +159,36 @@ class TestClaimExtractor(unittest.TestCase):
         self.assertGreaterEqual(len(claims), 2)
         self.assertEqual(claims[0]["claim_id"], 1)
         self.assertEqual(claims[1]["claim_id"], 2)
+
+    def test_analyze_claims_no_facts_detected(self):
+        """Verify that questions and emotions trigger clear diagnostic messages."""
+        text = "I feel very sad today. Who am I and why are you here?"
+        analysis = analyze_claims(text)
+        self.assertFalse(analysis["has_factual_claims"])
+        self.assertEqual(analysis["total_claims"], 0)
+        self.assertIn("not a factual claim", analysis["status_message"].lower())
+        self.assertIn("emotions", analysis["status_message"].lower())
+        self.assertIn("questions", analysis["status_message"].lower())
+
+    def test_analyze_claims_with_factual_claims(self):
+        """Verify that factual claims are recognized and separated from personal feelings."""
+        text = "The Moon orbits the Earth every 27.3 days. I love looking at the stars."
+        analysis = analyze_claims(text)
+        self.assertTrue(analysis["has_factual_claims"])
+        self.assertEqual(analysis["total_claims"], 1)
+        self.assertIn("The Moon orbits the Earth", analysis["claims"][0]["text"])
+        self.assertIn("1 factual claim", analysis["status_message"].lower())
+
+    def test_analyze_claims_single_word_and_random(self):
+        """Verify that single words or random text give clear 'Invalid input' messages."""
+        res_single = analyze_claims("Apple")
+        self.assertFalse(res_single["has_factual_claims"])
+        self.assertIn("invalid input", res_single["status_message"].lower())
+        self.assertIn("single word", res_single["status_message"].lower())
+
+        res_random = analyze_claims("asdfghjkl")
+        self.assertFalse(res_random["has_factual_claims"])
+        self.assertIn("invalid input", res_random["status_message"].lower())
 
 
 if __name__ == "__main__":
