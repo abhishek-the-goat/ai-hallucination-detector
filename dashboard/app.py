@@ -313,10 +313,13 @@ def _build_result_context(answer_text: str, report: dict, check_id: int = 0) -> 
         "n_claims": total,
     }
 
+    highlighted_html = _highlight_text(answer_text, verdicts) if answer_text else ""
+
     return {
         "data": data,
         "row": row,
         "answer_text": answer_text,
+        "highlighted_html": highlighted_html,
         "verdicts": verdicts,
         "message": message,
         "hallucination_score": score,

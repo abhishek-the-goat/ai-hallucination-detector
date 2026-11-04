@@ -27,6 +27,18 @@
   <button class="ghost no-print" onclick="window.print()">Print report</button>
 </section>
 
+{% if highlighted_html %}
+<section class="annotated-text-card" aria-labelledby="annotated-title">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.5rem;">
+    <h2 id="annotated-title" style="margin: 0;">Verified Answer Text</h2>
+    <span class="muted" style="font-size: 0.85rem;">Claims color-coded inline with confidence badges</span>
+  </div>
+  <div class="annotated-body">
+    {{ highlighted_html|safe }}
+  </div>
+</section>
+{% endif %}
+
 <section class="fingerprint" aria-labelledby="fingerprint-title">
   <div class="fingerprint-head">
     <div><span class="eyebrow">YOUR REPORT SIGNATURE</span><h2 id="fingerprint-title">Hallucination fingerprint</h2></div>

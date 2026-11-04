@@ -300,3 +300,191 @@ if (dataEl) {
   [search, filter, sort].forEach((control) => control.addEventListener('input', update));
   update();
 })();
+
+
+// ---- Interactive Cursor-Reactive Starfield ----
+(() => {
+  const canvas = document.getElementById('starfield-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let width = 0;
+  let height = 0;
+  let dpr = 1;
+  let stars = [];
+  const mouse = { x: -9999, y: -9999, active: false };
+
+  const resize = () => {
+    dpr = window.devicePixelRatio || 1;
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    initStars();
+  };
+
+  const initStars = () => {
+    const count = Math.max(90, Math.min(220, Math.floor((width * height) / 8500)));
+    stars = [];
+    for (let i = 0; i < count; i++) {
+      const x = Math.random() * width;
+      const y = Math.random() * height;
+      const baseAlpha = 0.3 + Math.random() * 0.6;
+      stars.push({
+        x,
+        y,
+        baseX: x,
+        baseY: y,
+        vx: (Math.random() - 0.5) * 0.22,
+        vy: (Math.random() - 0.5) * 0.22,
+        radius: 0.75 + Math.random() * 1.35,
+        alpha: baseAlpha,
+        baseAlpha: baseAlpha,
+        twinklePhase: Math.random() * Math.PI * 2,
+        twinkleSpeed: 0.015 + Math.random() * 0.025,
+      });
+    }
+  };
+
+  window.addEventListener('resize', resize, { passive: true });
+  window.addEventListener('mousemove', (e) => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+    mouse.active = true;
+  }, { passive: true });
+
+  window.addEventListener('mouseleave', () => {
+    mouse.active = false;
+    mouse.x = -9999;
+    mouse.y = -9999;
+  });
+
+  window.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches[0]) {
+      mouse.x = e.touches[0].clientX;
+      mouse.y = e.touches[0].clientY;
+      mouse.active = true;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchend', () => {
+    mouse.active = false;
+    mouse.x = -9999;
+    mouse.y = -9999;
+  });
+
+  const INTERACTION_RADIUS = 160;
+  const SPRING = 0.04;
+
+  const render = () => {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    const isDark = document.documentElement.dataset.theme !== 'light';
+    const baseColor = isDark ? '255, 255, 255' : '0, 0, 0';
+
+    for (let i = 0; i < stars.length; i++) {
+      const s = stars[i];
+
+      if (!reducedMotion) {
+        // Natural gentle drift
+        s.baseX += s.vx;
+        s.baseY += s.vy;
+        if (s.baseX < 0) s.baseX = width;
+        else if (s.baseX > width) s.baseX = 0;
+        if (s.baseY < 0) s.baseY = height;
+        else if (s.baseY > height) s.baseY = 0;
+
+        // Cursor reaction: deflection + brightening + constellation link
+        if (mouse.active) {
+          const dx = s.x - mouse.x;
+          const dy = s.y - mouse.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist < INTERACTION_RADIUS && dist > 0) {
+            const force = (1 - dist / INTERACTION_RADIUS);
+            const angle = Math.atan2(dy, dx);
+            const push = force * 26;
+            s.x += Math.cos(angle) * push * 0.2;
+            s.y += Math.sin(angle) * push * 0.2;
+            s.alpha = Math.min(1.0, s.baseAlpha + force * 0.6);
+
+            // Subtle interactive constellation line to cursor
+            ctx.beginPath();
+            ctx.moveTo(s.x, s.y);
+            ctx.lineTo(mouse.x, mouse.y);
+            ctx.strokeStyle = `rgba(${baseColor}, ${force * 0.3})`;
+            ctx.lineWidth = 0.85;
+            ctx.stroke();
+          } else {
+            s.alpha += (s.baseAlpha - s.alpha) * 0.08;
+          }
+        } else {
+          s.alpha += (s.baseAlpha - s.alpha) * 0.08;
+        }
+
+        // Return smoothly toward base coordinates
+        s.x += (s.baseX - s.x) * SPRING;
+        s.y += (s.baseY - s.y) * SPRING;
+
+        s.twinklePhase += s.twinkleSpeed;
+      }
+
+      const twinkle = Math.sin(s.twinklePhase) * 0.22;
+      const currentAlpha = Math.max(0.18, Math.min(1.0, s.alpha + twinkle));
+
+      // Draw crisp dotted star
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${baseColor}, ${currentAlpha})`;
+      ctx.fill();
+
+      // Soft glow for bright stars
+      if (currentAlpha > 0.65) {
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.radius * 2.5, 0, Math.PI * 2);
+        const glowAlpha = isDark ? (currentAlpha - 0.65) * 0.35 : (currentAlpha - 0.65) * 0.18;
+        ctx.fillStyle = `rgba(${baseColor}, ${glowAlpha})`;
+        ctx.fill();
+      }
+    }
+
+    // Connect close neighboring stars near the cursor to create a celestial constellation web
+    if (mouse.active && !reducedMotion) {
+      for (let i = 0; i < stars.length; i++) {
+        const s1 = stars[i];
+        if (Math.hypot(s1.x - mouse.x, s1.y - mouse.y) > INTERACTION_RADIUS) continue;
+        for (let j = i + 1; j < stars.length; j++) {
+          const s2 = stars[j];
+          const distBetween = Math.hypot(s1.x - s2.x, s1.y - s2.y);
+          if (distBetween < 85) {
+            const lineAlpha = (1 - distBetween / 85) * (isDark ? 0.25 : 0.2);
+            ctx.beginPath();
+            ctx.moveTo(s1.x, s1.y);
+            ctx.lineTo(s2.x, s2.y);
+            ctx.strokeStyle = `rgba(${baseColor}, ${lineAlpha})`;
+            ctx.lineWidth = 0.75;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    if (!reducedMotion) {
+      requestAnimationFrame(render);
+    }
+  };
+
+  resize();
+  if (reducedMotion) {
+    render();
+  } else {
+    requestAnimationFrame(render);
+  }
+})();
