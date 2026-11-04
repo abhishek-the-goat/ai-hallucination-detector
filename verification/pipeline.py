@@ -17,6 +17,7 @@ def run_pipeline(answer_text: str, live: bool = True) -> dict:
             "hallucination_score": float,
             "message": str,
             "total_claims": int,
+            "sources_consulted": list,
         }
     """
     raw_claims = extract_claims(answer_text)
@@ -35,6 +36,7 @@ def run_pipeline(answer_text: str, live: bool = True) -> dict:
             "hallucination_score": 0.0,
             "message": message,
             "total_claims": 0,
+            "sources_consulted": ["wikipedia", "wikidata", "arxiv"],
         }
 
     verdicts = []
@@ -65,6 +67,15 @@ def run_pipeline(answer_text: str, live: bool = True) -> dict:
             }
         else:
             verdict = verify_claim(claim, filtered_evidence)
+
+        # Count distinct sources among top-3 evidence items
+        top_3_evidence = verdict.get("evidence", [])[:3]
+        distinct_sources = {
+            ev.get("source") for ev in top_3_evidence
+            if isinstance(ev, dict) and ev.get("source")
+        }
+        verdict["agreeing_sources"] = len(distinct_sources)
+
         verdicts.append(verdict)
 
         if verdict["label"] == "CONTRADICTED":
@@ -80,4 +91,5 @@ def run_pipeline(answer_text: str, live: bool = True) -> dict:
         "hallucination_score": hallucination_score,
         "message": "",
         "total_claims": total_claims,
+        "sources_consulted": ["wikipedia", "wikidata", "arxiv"],
     }

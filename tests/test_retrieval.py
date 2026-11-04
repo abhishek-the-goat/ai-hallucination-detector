@@ -703,11 +703,22 @@ class TestLiveSearchRetrieval(unittest.TestCase):
                 "score": 0.85,
                 "raw_similarity": 0.85,
                 "cosine_similarity": 0.85,
+                "source": "wikipedia",
             }
         ]
-        with patch("retrieval.live_search.retrieve_live_evidence", return_value=mock_evidence):
+        with patch("retrieval.live_search.retrieve_live_evidence", return_value=mock_evidence), \
+             patch("retrieval.sources.fetch_wikidata", return_value=[]), \
+             patch("retrieval.sources.fetch_arxiv", return_value=[]), \
+             patch("retrieval.search.get_indexes") as mock_idx:
+            mock_bm25 = MagicMock()
+            mock_bm25.search.return_value = []
+            mock_vec = MagicMock()
+            mock_vec.search.return_value = []
+            mock_idx.return_value = (mock_bm25, mock_vec)
             res = retrieve_evidence("Taj Mahal claim", live=True)
-            self.assertEqual(res, mock_evidence)
+            self.assertEqual(len(res), 1)
+            self.assertEqual(res[0]["text"], mock_evidence[0]["text"])
+            self.assertEqual(res[0]["source"], "wikipedia")
 
     def test_live_true_falls_back_on_exception(self):
         bm25 = BM25Index(_MINI_CORPUS)
@@ -736,6 +747,138 @@ class TestLiveSearchRetrieval(unittest.TestCase):
             )
             self.assertTrue(len(res) > 0)
             self.assertEqual(res[0]["source_title"], "Eiffel Tower - Wikipedia")
+
+
+
+
+# ---------------------------------------------------------------------------
+# 10. Multi-source retrieval integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestMultiSourceRetrieval(unittest.TestCase):
+    """Tests for multi-source retrieval across Wikipedia, Wikidata, and arXiv."""
+
+    def test_multi_source_returns_distinct_sources(self):
+        """With all three sources mocked, retrieve_evidence returns evidence from at least 2 distinct sources."""
+        wiki_ev = [
+            {
+                "text": "Paris is the capital and most populous city of France.",
+                "source_title": "Paris - Wikipedia",
+                "source_url": "https://en.wikipedia.org/wiki/Paris",
+                "score": 0.95,
+                "source": "wikipedia",
+            }
+        ]
+        wikidata_ev = [
+            {
+                "text": "Paris - capital of France (Wikidata)",
+                "source_title": "Paris - Wikidata",
+                "source_url": "https://www.wikidata.org/wiki/Q90",
+                "score": 0.90,
+                "source": "wikidata",
+            }
+        ]
+        arxiv_ev = [
+            {
+                "text": "A study of urban mobility in the Paris metropolitan region.",
+                "source_title": "arXiv:2101.99999",
+                "source_url": "http://arxiv.org/abs/2101.99999v1",
+                "score": 0.80,
+                "source": "arxiv",
+            }
+        ]
+
+        with patch("retrieval.sources.fetch_wikipedia", return_value=wiki_ev), \
+             patch("retrieval.sources.fetch_wikidata", return_value=wikidata_ev), \
+             patch("retrieval.sources.fetch_arxiv", return_value=arxiv_ev), \
+             patch("retrieval.search.get_indexes") as mock_indexes:
+            mock_bm25 = MagicMock()
+            mock_bm25.search.return_value = []
+            mock_v = MagicMock()
+            mock_v.search.return_value = []
+            mock_indexes.return_value = (mock_bm25, mock_v)
+
+            results = retrieve_evidence("Paris is the capital of France", k=5, live=True)
+            sources = {item["source"] for item in results}
+            self.assertGreaterEqual(len(sources), 2)
+            self.assertIn("wikidata", sources)
+            self.assertIn("wikipedia", sources)
+
+    def test_deduplication_across_sources(self):
+        """Duplicate text coming from two sources appears only once in the results."""
+        same_text = "Paris is the capital of France."
+        wiki_ev = [
+            {
+                "text": same_text,
+                "source_title": "Paris - Wikipedia",
+                "source_url": "https://en.wikipedia.org/wiki/Paris",
+                "score": 0.9,
+                "source": "wikipedia",
+            }
+        ]
+        wikidata_ev = [
+            {
+                "text": "   paris is the capital of France.   ",
+                "source_title": "Paris - Wikidata",
+                "source_url": "https://www.wikidata.org/wiki/Q90",
+                "score": 0.85,
+                "source": "wikidata",
+            }
+        ]
+
+        with patch("retrieval.sources.fetch_wikipedia", return_value=wiki_ev), \
+             patch("retrieval.sources.fetch_wikidata", return_value=wikidata_ev), \
+             patch("retrieval.sources.fetch_arxiv", return_value=[]), \
+             patch("retrieval.search.get_indexes") as mock_indexes:
+            mock_bm25 = MagicMock()
+            mock_bm25.search.return_value = []
+            mock_v = MagicMock()
+            mock_v.search.return_value = []
+            mock_indexes.return_value = (mock_bm25, mock_v)
+
+            results = retrieve_evidence("Paris is the capital of France", k=5, live=True)
+            norm_texts = [" ".join(item["text"].strip().lower().split()) for item in results]
+            self.assertEqual(len(norm_texts), len(set(norm_texts)))
+            self.assertEqual(len(results), 1)
+
+    def test_evidence_contract_and_k_limit(self):
+        """retrieve_evidence still returns at most k items and every item has all four contract keys plus source."""
+        candidates = [
+            {
+                "text": f"Research finding {i} on machine learning architectures.",
+                "source_title": f"Paper {i}",
+                "source_url": f"https://arxiv.org/abs/{i}",
+                "score": 0.6 + i * 0.03,
+                "source": "arxiv" if i % 2 == 0 else "wikidata",
+            }
+            for i in range(10)
+        ]
+
+        with patch("retrieval.sources.fetch_wikipedia", return_value=[]), \
+             patch("retrieval.sources.fetch_wikidata", return_value=candidates[:5]), \
+             patch("retrieval.sources.fetch_arxiv", return_value=candidates[5:]), \
+             patch("retrieval.search.get_indexes") as mock_indexes:
+            mock_bm25 = MagicMock()
+            mock_bm25.search.return_value = []
+            mock_v = MagicMock()
+            mock_v.search.return_value = []
+            mock_indexes.return_value = (mock_bm25, mock_v)
+
+            for k_val in [1, 3, 5]:
+                results = retrieve_evidence("machine learning", k=k_val, live=True)
+                self.assertLessEqual(len(results), k_val)
+                for ev in results:
+                    self.assertIn("text", ev)
+                    self.assertIn("source_title", ev)
+                    self.assertIn("source_url", ev)
+                    self.assertIn("score", ev)
+                    self.assertIn("source", ev)
+                    self.assertIsInstance(ev["text"], str)
+                    self.assertIsInstance(ev["source_title"], str)
+                    self.assertIsInstance(ev["source_url"], str)
+                    self.assertIsInstance(ev["score"], float)
+                    self.assertIn(ev["source"], ("wikipedia", "wikidata", "arxiv"))
 
 
 if __name__ == "__main__":
