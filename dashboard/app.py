@@ -28,7 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from flask import Flask, render_template, request, redirect, url_for, g
+from flask import Flask, render_template, request, redirect, url_for, g, jsonify
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -412,6 +412,149 @@ def delete_history(check_id: int):
     db.execute("DELETE FROM checks WHERE id = ?", (check_id,))
     db.commit()
     return redirect(url_for("history"))
+
+
+
+# ---------------------------------------------------------------------------
+# JSON API Helpers and Routes (for Vercel frontend + Render backend)
+# ---------------------------------------------------------------------------
+
+def _extract_sources_consulted(report: dict) -> list[str]:
+    sources = []
+    seen = set()
+    for v in report.get("verdicts", []):
+        for ev in v.get("evidence", []):
+            src = ev.get("source_title") or ev.get("source_url") or ""
+            if src and src not in seen:
+                seen.add(src)
+                sources.append(src)
+    return sources
+
+
+@app.after_request
+def _add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return response
+
+
+@app.route("/api/<path:path>", methods=["OPTIONS"])
+def _api_options(path):
+    return "", 204
+
+
+@app.route("/api/health", methods=["GET"])
+def api_health():
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/check", methods=["POST"])
+def api_check():
+    body = request.get_json(force=True, silent=True) or {}
+    answer = (body.get("answer") or body.get("answer_text") or "").strip()
+    if not answer:
+        return jsonify({"error": "paste an answer first"}), 400
+
+    live = bool(body.get("live", True))
+    from verification.pipeline import run_pipeline
+    report = run_pipeline(answer, live=live)
+
+    check_id = save_check(answer, report)
+    ctx = _build_result_context(answer, report, check_id=check_id)
+    sources = _extract_sources_consulted(report)
+
+    verdicts = report.get("verdicts", [])
+    hallucination_score = float(report.get("hallucination_score", 0.0))
+
+    return jsonify({
+        "verdicts": verdicts,
+        "hallucination_score": hallucination_score,
+        "sources_consulted": sources,
+        "message": report.get("message", ""),
+        "total_claims": report.get("total_claims", len(verdicts)),
+        "check_id": check_id,
+        "data": ctx["data"],
+        "row": ctx["row"],
+    })
+
+
+@app.route("/api/history", methods=["GET"])
+def api_history():
+    db = get_db()
+    rows = db.execute(
+        """
+        SELECT id, timestamp, answer_text, hallucination_score,
+               supported_count, contradicted_count, unverified_count
+        FROM checks
+        ORDER BY id DESC
+        LIMIT 200
+        """
+    ).fetchall()
+
+    checks = []
+    for r in rows:
+        sc = float(r["hallucination_score"])
+        fmt_score = int(sc) if sc == int(sc) else round(sc, 2)
+        n_claims = r["supported_count"] + r["contradicted_count"] + r["unverified_count"]
+        checks.append({
+            "id": r["id"],
+            "created_at": r["timestamp"],
+            "answer": r["answer_text"],
+            "snippet": r["answer_text"][:140],
+            "score": fmt_score,
+            "n_claims": n_claims,
+            "supported_count": r["supported_count"],
+            "contradicted_count": r["contradicted_count"],
+            "unverified_count": r["unverified_count"],
+        })
+
+    stats = {
+        "total": len(checks),
+        "avg_score": round(sum(c["score"] for c in checks) / len(checks)) if checks else 0,
+        "claims": sum(c["n_claims"] for c in checks),
+    }
+
+    return jsonify({"checks": checks, "stats": stats})
+
+
+@app.route("/api/history/<int:check_id>", methods=["GET"])
+def api_history_detail(check_id: int):
+    db = get_db()
+    row = db.execute(
+        "SELECT id, timestamp, answer_text, report_json, hallucination_score FROM checks WHERE id = ?",
+        (check_id,),
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "not found"}), 404
+
+    answer_text = row["answer_text"]
+    report = json.loads(row["report_json"])
+    ctx = _build_result_context(answer_text, report, check_id=check_id)
+    sources = _extract_sources_consulted(report)
+
+    return jsonify({
+        "id": check_id,
+        "check_id": check_id,
+        "answer_text": answer_text,
+        "answer": answer_text,
+        "timestamp": row["timestamp"],
+        "hallucination_score": float(row["hallucination_score"]),
+        "verdicts": report.get("verdicts", []),
+        "sources_consulted": sources,
+        "message": report.get("message", ""),
+        "data": ctx["data"],
+        "row": ctx["row"],
+    })
+
+
+@app.route("/api/history/<int:check_id>", methods=["DELETE"])
+@app.route("/api/history/<int:check_id>/delete", methods=["POST"])
+def api_delete_history(check_id: int):
+    db = get_db()
+    db.execute("DELETE FROM checks WHERE id = ?", (check_id,))
+    db.commit()
+    return jsonify({"deleted": True, "id": check_id})
 
 
 # ---------------------------------------------------------------------------
