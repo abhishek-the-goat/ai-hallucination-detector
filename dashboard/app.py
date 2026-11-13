@@ -9,7 +9,7 @@ Routes:
     GET  /history  — past checks from SQLite (newest first, clickable to re-view)
     GET  /history/<id> — re-view a past check from SQLite
 
-Models are loaded ONCE at startup so that DeBERTa + MiniLM embeddings +
+ONNX models + MiniLM embeddings +
 FAISS index are ready before incoming requests.
 """
 
@@ -112,13 +112,11 @@ def save_check(answer_text: str, report: dict) -> int:
 
 def _warm_up_models():
     """
-    Import and trigger lazy model loading once at startup so that
-    DeBERTa + MiniLM + FAISS index are ready before incoming requests.
+    Trigger index and ONNX model loading once at startup so that
+    FAISS index is ready before incoming requests.
     """
     print("[dashboard] Warming up pipeline models once at startup...")
     try:
-        from verification.models import _load_models
-        _load_models()
         from retrieval.search import retrieve_evidence
         retrieve_evidence("startup warm up", k=1)
         print("[dashboard] Pipeline models are ready.")

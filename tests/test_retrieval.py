@@ -601,45 +601,44 @@ class TestVectorIndexMocked(unittest.TestCase):
     """
 
     def _make_vector_index(self, docs: list[Document]) -> "VectorIndex":
-        """Build a VectorIndex with mocked SentenceTransformer and faiss."""
+        """Build a VectorIndex with mocked FAISS and precomputed embeddings."""
         import numpy as np
+        from unittest.mock import mock_open
         from retrieval.index import VectorIndex
 
-        dim = 8  # small fake embedding dimension
+        dim = 384  # standard embedding dimension
         n = len(docs)
-        # Fixed deterministic embeddings — each doc gets a unit vector
         embeddings = np.eye(n, dim, dtype=np.float32)
-
-        mock_model = MagicMock()
-        # encode() for corpus passages
-        mock_model.encode.side_effect = lambda texts, **kw: (
-            embeddings[:len(texts)] if isinstance(texts, list) else embeddings[0:1]
-        )
+        doc_ids = [d.id for d in docs]
 
         mock_index = MagicMock()
-        # Simulate FAISS returning the first doc as the best match
         mock_index.ntotal = n
         mock_index.search.return_value = (
-            np.array([[1.0, 0.9, 0.1]], dtype=np.float32),  # distances
-            np.array([[0, 1, 2]], dtype=np.int64),           # indices
+            np.array([[1.0, 0.9, 0.1][:n]], dtype=np.float32),  # distances
+            np.array([[0, 1, 2][:n]], dtype=np.int64),           # indices
         )
 
         mock_faiss = MagicMock()
         mock_faiss.IndexFlatIP.return_value = mock_index
 
-        mock_st = MagicMock()
-        mock_st.SentenceTransformer.return_value = mock_model
+        mock_npy = MagicMock()
+        mock_npy.exists.return_value = True
+        mock_json = MagicMock()
+        mock_json.exists.return_value = True
 
-        with patch.dict(sys.modules, {"faiss": mock_faiss, "sentence_transformers": mock_st}):
+        with patch("retrieval.index.NPY_PATH", mock_npy), \
+             patch("retrieval.index.JSON_PATH", mock_json), \
+             patch("numpy.load", return_value=embeddings), \
+             patch("builtins.open", mock_open(read_data=json.dumps(doc_ids))), \
+             patch.dict(sys.modules, {"faiss": mock_faiss}):
             vi = VectorIndex(docs)
 
         return vi
 
     def test_rejects_empty_corpus(self):
         from retrieval.index import VectorIndex
-        with patch.dict(sys.modules, {"sentence_transformers": MagicMock(), "faiss": MagicMock()}):
-            with self.assertRaises(ValueError):
-                VectorIndex([])
+        with self.assertRaises(ValueError):
+            VectorIndex([])
 
     def test_search_returns_tuples(self):
         vi = self._make_vector_index(_MINI_CORPUS)

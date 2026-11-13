@@ -1,0 +1,25 @@
+================================================================================
+AI Hallucination Detector - Pipeline Evaluation (live=True)
+================================================================================
+[01/20] [FAIL] Claim: "The Eiffel Tower is located in Paris." | Expected: SUPPORTED | System: CONTRADICTED | Confidence: 0.61 | Evidence Source: Eiffel Tower (Paris, Texas) - Wikipedia
+[02/20] [FAIL] Claim: "The Pacific Ocean is the largest ocean on Earth." | Expected: SUPPORTED | System: CONTRADICTED | Confidence: 0.73 | Evidence Source: Borders of the oceans - Wikipedia
+[03/20] [FAIL] Claim: "Mount Everest is the highest mountain above sea level." | Expected: SUPPORTED | System: CONTRADICTED | Confidence: 0.69 | Evidence Source: Tallest mountain - Wikipedia
+[04/20] [FAIL] Claim: "Water freezes at 0 degrees Celsius under standard atmospheric pressure." | Expected: SUPPORTED | System: CONTRADICTED | Confidence: 1.00 | Evidence Source: Kelvin - Wikipedia
+[05/20] [PASS] Claim: "The human skeleton has 206 bones in an adult." | Expected: SUPPORTED | System: SUPPORTED | Confidence: 0.99 | Evidence Source: Skeleton - Wikipedia
+[06/20] [PASS] Claim: "Albert Einstein developed the theory of general relativity." | Expected: SUPPORTED | System: SUPPORTED | Confidence: 0.99 | Evidence Source: General relativity - Wikipedia
+[07/20] [FAIL] Claim: "Tokyo is the capital of Japan." | Expected: SUPPORTED | System: CONTRADICTED | Confidence: 0.99 | Evidence Source: Capital of Japan - Wikipedia
+[08/20] [PASS] Claim: "The Nile is widely considered the longest river in Africa." | Expected: SUPPORTED | System: SUPPORTED | Confidence: 0.77 | Evidence Source: Nile - Wikipedia
+[09/20] [FAIL] Claim: "The speed of light in a vacuum is approximately 299,792 kilometers per second." | Expected: SUPPORTED | System: UNVERIFIED | Confidence: 0.30 | Evidence Source: None
+[10/20] [PASS] Claim: "The Amazon rainforest is located in South America." | Expected: SUPPORTED | System: SUPPORTED | Confidence: 0.94 | Evidence Source: Fauna of the Amazon rainforest - Wikipedia
+[11/20] [PASS] Claim: "The Taj Mahal is located in China." | Expected: CONTRADICTED | System: CONTRADICTED | Confidence: 1.00 | Evidence Source: Origins and architecture of the Taj Mahal - Wikipedia
+[12/20] [PASS] Claim: "The Eiffel Tower is located in Berlin." | Expected: CONTRADICTED | System: CONTRADICTED | Confidence: 1.00 | Evidence Source: Eiffel Tower - Wikipedia
+[13/20] [PASS] Claim: "Mount Everest is located in Australia." | Expected: CONTRADICTED | System: CONTRADICTED | Confidence: 1.00 | Evidence Source: Everest (1998 film) - Wikipedia
+[14/20] [PASS] Claim: "Water boils at 20 degrees Celsius at sea level." | Expected: CONTRADICTED | System: CONTRADICTED | Confidence: 1.00 | Evidence Source: Kelvin - Wikipedia
+[15/20] [FAIL] Claim: "The Moon is larger than the Earth." | Expected: CONTRADICTED | System: SUPPORTED | Confidence: 0.98 | Evidence Source: Moon - Wikipedia
+[16/20] [PASS] Claim: "Tokyo is the capital of France." | Expected: CONTRADICTED | System: CONTRADICTED | Confidence: 1.00 | Evidence Source: Tokyo - Wikipedia
+[17/20] [PASS] Claim: "The Pacific Ocean is the smallest ocean on Earth." | Expected: CONTRADICTED | System: CONTRADICTED | Confidence: 1.00 | Evidence Source: Borders of the oceans - Wikipedia
+[18/20] [PASS] Claim: "Albert Einstein was the first President of the United States." | Expected: CONTRADICTED | System: CONTRADICTED | Confidence: 0.97 | Evidence Source: Political views of Albert Einstein - Wikipedia
+[19/20] [PASS] Claim: "The Nile River is located entirely in South America." | Expected: CONTRADICTED | System: CONTRADICTED | Confidence: 1.00 | Evidence Source: Nile - Wikipedia
+[20/20] [PASS] Claim: "The Great Wall of China is located in Canada." | Expected: CONTRADICTED | System: CONTRADICTED | Confidence: 1.00 | Evidence Source: Great Wall of China - Wikipedia
+--------------------------------------------------------------------------------
+Total correct: 13/20 (65.0%)

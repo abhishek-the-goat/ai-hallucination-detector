@@ -6,9 +6,9 @@ Builds and exposes BM25 and FAISS vector indexes over the Document corpus.
 Design
 ------
 - BM25Index  : wraps rank-bm25's BM25Okapi for keyword/TF-IDF search.
-- VectorIndex: encodes passages with `all-MiniLM-L6-v2` via sentence-transformers,
-               stores L2-normalised embeddings in a FAISS IndexFlatIP so that
-               inner product == cosine similarity.
+- VectorIndex: loads precomputed ONNX MiniLM embeddings from retrieval/data/corpus_embeddings.npy
+               and manifest retrieval/data/corpus_embeddings.json, indexing them in FAISS IndexFlatIP.
+               Queries are embedded via verification.models.get_embedding.
 
 Both classes are instantiated through module-level lazy singletons.
 Nothing is loaded until `get_indexes()` is called for the first time.
@@ -16,12 +16,18 @@ Nothing is loaded until `get_indexes()` is called for the first time.
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
 
 from retrieval.corpus import Document, load_corpus
+
+DATA_DIR = Path(__file__).resolve().parent / "data"
+NPY_PATH = DATA_DIR / "corpus_embeddings.npy"
+JSON_PATH = DATA_DIR / "corpus_embeddings.json"
 
 # ---------------------------------------------------------------------------
 # BM25 Index
@@ -82,16 +88,11 @@ class BM25Index:
 # Vector Index
 # ---------------------------------------------------------------------------
 
-_EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
-
 
 class VectorIndex:
     """
-    Semantic search index built from a list of Documents.
-
-    Embeddings are produced by `all-MiniLM-L6-v2` (sentence-transformers).
-    Vectors are L2-normalised before being stored in a FAISS IndexFlatIP so
-    that inner-product search == cosine similarity in [0, 1].
+    Semantic search index built from a list of Documents using precomputed
+    ONNX MiniLM embeddings and FAISS IndexFlatIP.
 
     Parameters
     ----------
@@ -109,36 +110,36 @@ class VectorIndex:
                 "faiss-cpu is required. Install it with: pip install faiss-cpu"
             ) from exc
 
-        try:
-            from sentence_transformers import SentenceTransformer
-        except ImportError as exc:
-            raise ImportError(
-                "sentence-transformers is required. "
-                "Install it with: pip install sentence-transformers"
-            ) from exc
+        if not NPY_PATH.exists() or not JSON_PATH.exists():
+            raise FileNotFoundError(
+                f"Precomputed embeddings missing at {NPY_PATH} or {JSON_PATH}. "
+                "Run python retrieval/build_embeddings.py first."
+            )
+
+        with open(JSON_PATH, "r", encoding="utf-8") as f:
+            manifest_ids: list[str] = json.load(f)
+
+        embeddings: np.ndarray = np.load(str(NPY_PATH)).astype(np.float32)
+
+        if len(embeddings) != len(manifest_ids):
+            raise ValueError(
+                f"Embedding rows ({len(embeddings)}) != manifest ids ({len(manifest_ids)})"
+            )
+
+        if len(documents) != len(manifest_ids):
+            raise ValueError(
+                f"Corpus documents ({len(documents)}) != manifest ids ({len(manifest_ids)})"
+            )
+
+        doc_ids = [d.id for d in documents]
+        if doc_ids != manifest_ids:
+            raise ValueError("Corpus documents do not align with corpus_embeddings.json manifest order.")
 
         self._docs = documents
-
-        print(f"[index] Loading embedding model '{_EMBEDDING_MODEL_NAME}'…")
-        model = SentenceTransformer(_EMBEDDING_MODEL_NAME, device="cpu")
-
-        print(f"[index] Encoding {len(documents)} passages…")
-        texts = [d.text for d in documents]
-        embeddings: np.ndarray = model.encode(
-            texts,
-            batch_size=64,
-            show_progress_bar=False,
-            convert_to_numpy=True,
-            normalize_embeddings=True,   # L2-normalise → cosine via dot product
-        )
-        embeddings = embeddings.astype(np.float32)
 
         dim = embeddings.shape[1]
         self._index = faiss.IndexFlatIP(dim)
         self._index.add(embeddings)
-
-        # Keep model for query encoding
-        self._model = model
         print("[index] VectorIndex ready.")
 
     def search(self, query: str, k: int) -> list[tuple[float, Document]]:
@@ -151,11 +152,9 @@ class VectorIndex:
         if not query or not query.strip():
             return []
 
-        q_emb: np.ndarray = self._model.encode(
-            [query],
-            convert_to_numpy=True,
-            normalize_embeddings=True,
-        ).astype(np.float32)
+        from verification.models import get_embedding
+
+        q_emb = get_embedding(query).reshape(1, -1).astype(np.float32)
 
         k_safe = min(k, self._index.ntotal)
         distances, indices = self._index.search(q_emb, k_safe)
