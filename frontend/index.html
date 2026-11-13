@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hallucination Detector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="cursor-glow" aria-hidden="true"></div>
+  <div class="custom-cursor" aria-hidden="true"><span></span></div>
+  <header class="top">
+    <a class="brand" href="index.html">Hallucination Detector</a>
+    <nav>
+      <a href="index.html" aria-current="page">New check</a>
+      <a href="#history-section">History</a>
+      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch theme" title="Switch theme">☼ <span>Theme</span></button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-kicker"><span class="hero-pulse"></span> CLAIM-LEVEL VERIFICATION</div>
+      <h1>Don't just read the answer.<br><span class="hero-gradient">Interrogate its evidence.</span></h1>
+      <p class="lead">Turn confident-sounding AI text into a claim-by-claim evidence map. See what is supported, contradicted, or still unverified.</p>
+      <p id="form-error" class="flash" role="alert" style="display:none;"></p>
+      
+      <form id="check-form" class="island">
+        <label for="answer" class="sr">Paste AI Answer</label>
+        <textarea id="answer" name="answer" required placeholder="Paste AI Answer to check…"></textarea>
+        <div class="island-foot">
+          <span id="count" class="muted">0 characters</span>
+          <button type="submit" id="submit-btn"><span>Analyse claims</span><span aria-hidden="true">⟶</span></button>
+        </div>
+        <div id="status" class="analysis-status" role="status" aria-live="polite" style="display:none;">
+          <span class="analysis-spinner" aria-hidden="true"></span>
+          <span class="analysis-status-copy">
+            <strong>Verification in progress</strong>
+            <small id="status-detail">Waiting for pipeline verification. Please allow a few seconds...</small>
+          </span>
+        </div>
+      </form>
+    </section>
+
+    <!-- Results Area (rendered by app.js) -->
+    <div id="results-area" style="display:none; margin-bottom: 3rem;"></div>
+
+    <ul class="legend-row" aria-label="How to read results">
+      <li class="supported"><span class="badge supported">Supported</span><br>Evidence in the corpus backs the claim.</li>
+      <li class="contradicted"><span class="badge contradicted">Contradicted</span><br>Evidence says the opposite.</li>
+      <li class="unverified"><span class="badge unverified">Unverified</span><br>No strong evidence either way.</li>
+    </ul>
+
+    <!-- History List Section -->
+    <section id="history-section" class="history-container" style="margin-top: 3.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 0.75rem;">
+        <div>
+          <span class="eyebrow" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600;">SAVED CHECKS</span>
+          <h2 style="margin: 0.2rem 0 0;">Check History</h2>
+        </div>
+        <button type="button" id="refresh-history-btn" class="ghost" style="font-size: 0.85rem;">↻ Refresh</button>
+      </div>
+
+      <div id="history-stats" class="summary" style="margin-bottom: 1.5rem; display: none;">
+        <!-- Stats populated dynamically -->
+      </div>
+
+      <div id="history-list" class="history-list">
+        <p class="muted">Loading history…</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Quick scan floating widget -->
+  <button type="button" id="qc-toggle" class="qc-toggle" aria-expanded="false" aria-controls="qc-panel">
+    <span class="qc-orb" aria-hidden="true">✳</span><span><small>FAST TOOL</small> Signal Scan</span><span class="qc-toggle-arrow" aria-hidden="true">↗</span>
+  </button>
+  <div id="qc-panel" class="qc-panel" hidden>
+    <div class="qc-heading"><span class="qc-kicker">QUICK INTELLIGENCE CHECK</span><span class="qc-live"><i></i> READY</span></div>
+    <h2>Scan an answer</h2>
+    <p class="qc-copy">Spot unsupported claims before you trust the response.</p>
+    <label for="qc-answer">AI-generated text</label>
+    <textarea id="qc-answer" rows="5" required placeholder="Paste AI Answer to inspect…"></textarea>
+    <div class="qc-tools"><span id="qc-count">0 characters</span><button type="button" id="qc-sample">Try sample ↗</button></div>
+    <button type="button" class="qc-submit" id="qc-submit-btn"><span>Run signal scan</span><span aria-hidden="true">⟶</span></button>
+    <p class="qc-footnote">Claim-level results · Evidence-aware · Not a guarantee of truth</p>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verification History · Hallucination Detector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="cursor-glow" aria-hidden="true"></div>
+  <div class="custom-cursor" aria-hidden="true"><span></span></div>
+  <header class="top">
+    <a class="brand" href="index.html">Hallucination Detector</a>
+    <nav>
+      <a href="index.html">New check</a>
+      <a href="history.html" aria-current="page">History</a>
+      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch theme" title="Switch theme">☼ <span>Theme</span></button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="history-intro" style="margin-bottom: 2rem;">
+      <span class="eyebrow" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600;">WORKSPACE ARCHIVE</span>
+      <h1 style="margin-top: 0.25rem;">Verification History</h1>
+      <p class="muted">Review, inspect, or delete past verification reports.</p>
+    </section>
+
+    <div id="results-area" style="display:none; margin-bottom: 3rem;"></div>
+
+    <div id="history-section">
+      <div id="history-stats" class="summary" style="margin-bottom: 1.5rem; display: none;"></div>
+      <div id="history-list" class="history-list">
+        <p class="muted">Loading history…</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
+

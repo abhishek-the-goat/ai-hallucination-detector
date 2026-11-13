@@ -1,0 +1,10 @@
+// Replace TODO-RENDER-URL with the Render service URL after deploying the backend.
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://TODO-RENDER-URL/api/:path*"
+    }
+  ]
+}
+
