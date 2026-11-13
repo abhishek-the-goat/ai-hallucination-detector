@@ -22,17 +22,6 @@ from typing import Optional, List, Dict, Any
 
 import numpy as np
 
-# PyTorch accelerator bug fix for Windows CPU environments
-try:
-    import torch
-    if hasattr(torch, "accelerator"):
-        try:
-            torch.accelerator.current_accelerator()
-        except RuntimeError:
-            torch.accelerator.current_accelerator = lambda: None
-except ImportError:
-    pass
-
 # ---------------------------------------------------------------------------
 # Constants & Configuration
 # ---------------------------------------------------------------------------
@@ -43,22 +32,6 @@ REQUEST_TIMEOUT = 10  # 10-second timeout on every request
 
 _MODULE_DIR = Path(__file__).resolve().parent
 WIKI_CACHE_DIR = _MODULE_DIR / "data" / "wiki_cache"
-
-# Lazy-loaded singleton for SentenceTransformer
-_embedding_model = None
-
-
-def _get_embedding_model():
-    """Lazy load all-MiniLM-L6-v2 once, preferring local cache first."""
-    global _embedding_model
-    if _embedding_model is None:
-        from sentence_transformers import SentenceTransformer
-        try:
-            _embedding_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu", local_files_only=True)
-        except Exception:
-            _embedding_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
-    return _embedding_model
-
 
 def _safe_filename(title: str) -> str:
     """Return a safe filesystem name for the Wikipedia article title."""
@@ -289,11 +262,17 @@ def retrieve_live_evidence(claim_text: str, k: int = 5) -> List[Dict[str, Any]]:
     if not candidate_passages:
         return []
 
-    # 4. Embed passages and claim with all-MiniLM-L6-v2
-    model = _get_embedding_model()
-    q_emb = model.encode([claim_text], convert_to_numpy=True, normalize_embeddings=True)[0]
-    p_texts = [p["text"] for p in candidate_passages]
-    p_embs = model.encode(p_texts, batch_size=32, convert_to_numpy=True, normalize_embeddings=True)
+    # 4. Embed passages and claim with verification.models.get_embeddings
+    try:
+        from verification.models import get_embeddings
+        p_texts = [p["text"] for p in candidate_passages]
+        all_texts = [claim_text] + p_texts
+        all_embs = get_embeddings(all_texts)
+        q_emb = all_embs[0]
+        p_embs = all_embs[1:]
+    except Exception as exc:
+        print(f"[live_search] Embedding error: {exc}")
+        return []
 
     # 5. Compute raw cosine similarity via dot product (since normalized)
     raw_similarities = np.dot(p_embs, q_emb)

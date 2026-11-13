@@ -1,4 +1,3 @@
-import verification.models  # Ensures PyTorch CPU accelerator patch is active
 try:
     from claim_extractor import extract_claims, analyze_claims
 except ImportError:

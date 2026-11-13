@@ -4,5 +4,10 @@ __pycache__/
 .venv/
 venv/
 *.db
-data/
+/data/
 .ipynb_checkpoints/
+models/
+retrieval/data/wiki_cache/
+!retrieval/data/corpus.json
+!retrieval/data/corpus_embeddings.npy
+!retrieval/data/corpus_embeddings.json

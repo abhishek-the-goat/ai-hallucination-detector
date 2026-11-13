@@ -1,10 +1,10 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-torch
 flask
 requests
 scikit-learn
 rank-bm25
-sentence-transformers
-transformers
 faiss-cpu
 gunicorn
+onnxruntime
+tokenizers
+huggingface_hub
+numpy
